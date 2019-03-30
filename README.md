@@ -168,14 +168,14 @@ $ curl -X DELETE 'http://127.0.0.1:8080/store/key1'
 
 ## Bringing up a cluster
 
-Blast is easy to bring up the cluster. Blast data node is already running, but that is not fault tolerant. If you need to increase the fault tolerance, bring up 2 more data nodes like so:
+Cete is easy to bring up the cluster. Cete node is already running, but that is not fault tolerant. If you need to increase the fault tolerance, bring up 2 more data nodes like so:
 
 ```bash
 $ ./bin/cete start --node-id=node2 --data-dir=/tmp/cete/node2 --bind-addr=:6061 --grpc-addr=:5051 --http-addr=:8081 --join-addr=:5050
 $ ./bin/cete start --node-id=node3 --data-dir=/tmp/cete/node3 --bind-addr=:6062 --grpc-addr=:5052 --http-addr=:8082 --join-addr=:5050
 ```
 
-_Above example shows each Blast node running on the same host, so each node must listen on different ports. This would not be necessary if each node ran on a different host._
+_Above example shows each Cete node running on the same host, so each node must listen on different ports. This would not be necessary if each node ran on a different host._
 
 This instructs each new node to join an existing node, each node recognizes the joining clusters when started.
 So you have a 3-node cluster. That way you can tolerate the failure of 1 node. You can check the peers with the following command:
