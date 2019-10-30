@@ -278,16 +278,16 @@ func (s *RaftServer) Join(node *ceteraft.Node) error {
 		}
 
 		client, err := NewGRPCClient(string(node.GrpcAddr))
+		if err != nil {
+			s.logger.Printf("[ERR] %v", err)
+			return err
+		}
 		defer func() {
 			err := client.Close()
 			if err != nil {
 				s.logger.Printf("[ERR] %v", err)
 			}
 		}()
-		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
-			return nil
-		}
 
 		err = client.Join(node)
 		if err != nil {
@@ -343,16 +343,16 @@ func (s *RaftServer) Leave(node *ceteraft.Node) error {
 		}
 
 		client, err := NewGRPCClient(string(node.GrpcAddr))
+		if err != nil {
+			s.logger.Printf("[ERR] %v", err)
+			return err
+		}
 		defer func() {
 			err := client.Close()
 			if err != nil {
 				s.logger.Printf("[ERR] %v", err)
 			}
 		}()
-		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
-			return nil
-		}
 
 		err = client.Leave(node)
 		if err != nil {
@@ -502,16 +502,16 @@ func (s *RaftServer) Set(kvp *kvs.KeyValuePair) error {
 		}
 
 		client, err := NewGRPCClient(string(node.GrpcAddr))
+		if err != nil {
+			s.logger.Printf("[ERR] %v", err)
+			return err
+		}
 		defer func() {
 			err := client.Close()
 			if err != nil {
 				s.logger.Printf("[ERR] %v", err)
 			}
 		}()
-		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
-			return err
-		}
 
 		err = client.Put(kvp)
 		if err != nil {
@@ -563,16 +563,16 @@ func (s *RaftServer) Delete(kvp *kvs.KeyValuePair) error {
 		}
 
 		client, err := NewGRPCClient(string(node.GrpcAddr))
+		if err != nil {
+			s.logger.Printf("[ERR] %v", err)
+			return err
+		}
 		defer func() {
 			err := client.Close()
 			if err != nil {
 				s.logger.Printf("[ERR] %v", err)
 			}
 		}()
-		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
-			return err
-		}
 
 		err = client.Delete(kvp)
 		if err != nil {
