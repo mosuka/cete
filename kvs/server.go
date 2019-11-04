@@ -123,16 +123,16 @@ func (s *Server) Start() {
 	if !s.bootstrap {
 		// create gRPC client
 		client, err := NewGRPCClient(s.joinAddr)
+		if err != nil {
+			s.logger.Printf("[ERR] %v", err)
+			return
+		}
 		defer func() {
 			err := client.Close()
 			if err != nil {
 				s.logger.Printf("[ERR] %v", err)
 			}
 		}()
-		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
-			return
-		}
 
 		// join to the existing cluster
 		err = client.Join(s.node)
