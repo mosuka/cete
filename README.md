@@ -97,7 +97,7 @@ $ make GOOS=darwin dist
 Starting cete is easy as follows:
 
 ```bash
-$ ./bin/cete start --node-id=node1 --data-dir=/tmp/cete/node1 --bind-addr=:6060 --grpc-addr=:5050 --http-addr=:8080
+$ ./bin/cete start --node-id=node1 --data-dir=/tmp/cete/node1 --bind-addr=:7000 --grpc-addr=:9000 --http-addr=:8000
 ```
 
 You can now set, get and delete data via CLI.  
@@ -108,7 +108,7 @@ You can now set, get and delete data via CLI.
 Setting a value by key, execute the following command:
 
 ```bash
-$ ./bin/cete set --grpc-addr=:5050 --key=key1 value1
+$ ./bin/cete set --grpc-addr=:9000 --key=key1 value1
 ```
 
 
@@ -117,7 +117,7 @@ $ ./bin/cete set --grpc-addr=:5050 --key=key1 value1
 Getting a value by key, execute the following command:
 
 ```bash
-$ ./bin/cete get --grpc-addr=:5050 --key=key1
+$ ./bin/cete get --grpc-addr=:9000 --key=key1
 ```
 
 You can see the result. The result of the above command is:
@@ -132,13 +132,13 @@ value1
 Deleting a value by key, execute the following command:
 
 ```bash
-$ ./bin/cete delete --grpc-addr=:5050 --key=key1
+$ ./bin/cete delete --grpc-addr=:9000 --key=key1
 ```
 
 
 ## Using HTTP REST API
 
-Also you can do above commands via HTTP REST API that listened port 8080.
+Also you can do above commands via HTTP REST API that listened port 8000.
 
 
 ### Indexing a value by key via HTTP REST API
@@ -146,7 +146,7 @@ Also you can do above commands via HTTP REST API that listened port 8080.
 Indexing a value by key via HTTP is as following:
 
 ```bash
-$ curl -s -X PUT 'http://127.0.0.1:8080/store/key1' -d value1
+$ curl -s -X PUT 'http://127.0.0.1:8000/store/key1' -d value1
 ```
 
 
@@ -155,7 +155,7 @@ $ curl -s -X PUT 'http://127.0.0.1:8080/store/key1' -d value1
 Getting a value by key via HTTP is as following:
 
 ```bash
-$ curl -s -X GET 'http://127.0.0.1:8080/store/key1'
+$ curl -s -X GET 'http://127.0.0.1:8000/store/key1'
 ```
 
 
@@ -164,7 +164,7 @@ $ curl -s -X GET 'http://127.0.0.1:8080/store/key1'
 Deleting a value by key via HTTP is as following:
 
 ```bash
-$ curl -X DELETE 'http://127.0.0.1:8080/store/key1'
+$ curl -X DELETE 'http://127.0.0.1:8000/store/key1'
 ```
 
 
@@ -173,8 +173,8 @@ $ curl -X DELETE 'http://127.0.0.1:8080/store/key1'
 Cete is easy to bring up the cluster. Cete node is already running, but that is not fault tolerant. If you need to increase the fault tolerance, bring up 2 more data nodes like so:
 
 ```bash
-$ ./bin/cete start --node-id=node2 --data-dir=/tmp/cete/node2 --bind-addr=:6061 --grpc-addr=:5051 --http-addr=:8081 --join-addr=:5050
-$ ./bin/cete start --node-id=node3 --data-dir=/tmp/cete/node3 --bind-addr=:6062 --grpc-addr=:5052 --http-addr=:8082 --join-addr=:5050
+$ ./bin/cete start --node-id=node2 --data-dir=/tmp/cete/node2 --bind-addr=:7001 --grpc-addr=:9001 --http-addr=:8001 --join-addr=:9000
+$ ./bin/cete start --node-id=node3 --data-dir=/tmp/cete/node3 --bind-addr=:7002 --grpc-addr=:9002 --http-addr=:8002 --join-addr=:9000
 ```
 
 _Above example shows each Cete node running on the same host, so each node must listen on different ports. This would not be necessary if each node ran on a different host._
@@ -183,37 +183,33 @@ This instructs each new node to join an existing node, each node recognizes the 
 So you have a 3-node cluster. That way you can tolerate the failure of 1 node. You can check the peers with the following command:
 
 ```bash
-$ ./bin/cete cluster --grpc-addr=:5050
+$ ./bin/cete cluster --grpc-addr=:9000
 ```
 
 You can see the result in JSON format. The result of the above command is:
 
 ```json
 {
-  "nodes": [
-    {
-      "id": "node1",
-      "bind_addr": ":6060",
-      "grpc_addr": ":5050",
-      "http_addr": ":8080",
-      "leader": true,
-      "data_dir": "/tmp/cete/node1"
+  "nodes": {
+    "node1": {
+      "bind_addr": ":7000",
+      "grpc_addr": ":9000",
+      "http_addr": ":8000",
+      "state": "Leader"
     },
-    {
-      "id": "node2",
-      "bind_addr": ":6061",
-      "grpc_addr": ":5051",
-      "http_addr": ":8081",
-      "data_dir": "/tmp/cete/node2"
+    "node2": {
+      "bind_addr": ":7001",
+      "grpc_addr": ":9001",
+      "http_addr": ":8001",
+      "state": "Follower"
     },
-    {
-      "id": "node3",
-      "bind_addr": ":6062",
-      "grpc_addr": ":5052",
-      "http_addr": ":8082",
-      "data_dir": "/tmp/cete/node3"
+    "node3": {
+      "bind_addr": ":7002",
+      "grpc_addr": ":9002",
+      "http_addr": ":8002",
+      "state": "Follower"
     }
-  ]
+  }
 }
 ```
 
@@ -222,13 +218,13 @@ Recommend 3 or more odd number of nodes in the cluster. In failure scenarios, da
 The following command indexes documents to any node in the cluster:
 
 ```bash
-$ ./bin/cete set --grpc-addr=:5050 --key=key1 value1
+$ ./bin/cete set --grpc-addr=:9000 --key=key1 value1
 ```
 
 So, you can get the document from the node specified by the above command as follows:
 
 ```bash
-$ ./bin/cete get --grpc-addr=:5050 --key=key1
+$ ./bin/cete get --grpc-addr=:9000 --key=key1
 ```
 
 You can see the result. The result of the above command is:
@@ -240,8 +236,8 @@ value1
 You can also get the same document from other nodes in the cluster as follows:
 
 ```bash
-$ ./bin/cete get --grpc-addr=:5051 --key=key1
-$ ./bin/cete get --grpc-addr=:5052 --key=key1
+$ ./bin/cete get --grpc-addr=:9001 --key=key1
+$ ./bin/cete get --grpc-addr=:9002 --key=key1
 ```
 
 You can see the result. The result of the above command is:
@@ -287,19 +283,19 @@ Running a Cete data node on Docker. Start Cete node like so:
 
 ```bash
 $ docker run --rm --name cete-node1 \
-    -p 5050:5050 \
-    -p 6060:6060 \
-    -p 8080:8080 \
+    -p 7000:7000 \
+    -p 8000:8000 \
+    -p 9000:9000 \
     mosuka/cete:latest cete start \
       --node-id=node1 \
-      --bind-addr=:6060 \
-      --grpc-addr=:5050 \
-      --http-addr=:8080 \
+      --bind-addr=:7000 \
+      --grpc-addr=:9000 \
+      --http-addr=:8000 \
       --data-dir=/tmp/cete/node1
 ```
 
 You can execute the command in docker container as follows:
 
 ```bash
-$ docker exec -it cete-node1 cete node --grpc-addr=:5050
+$ docker exec -it cete-node1 cete node --grpc-addr=:9000
 ```

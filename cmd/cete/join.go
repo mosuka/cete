@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/mosuka/cete/kvs"
-	"github.com/mosuka/cete/protobuf/raft"
+	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"github.com/urfave/cli"
 )
 
@@ -39,9 +39,9 @@ func execJoin(c *cli.Context) error {
 		return err
 	}
 
-	node := &raft.Node{
+	req := &pbkvs.JoinRequest{
 		Id:       id,
-		BindAddr: addr,
+		GrpcAddr: addr,
 	}
 
 	client, err := kvs.NewGRPCClient(grpcAddr)
@@ -55,7 +55,7 @@ func execJoin(c *cli.Context) error {
 		}
 	}()
 
-	err = client.Join(node)
+	err = client.Join(req)
 	if err != nil {
 		return err
 	}

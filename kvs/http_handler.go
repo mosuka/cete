@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mosuka/cete/errors"
 	cetehttp "github.com/mosuka/cete/http"
-	"github.com/mosuka/cete/protobuf/kvs"
+	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"github.com/mosuka/cete/version"
 )
 
@@ -80,7 +80,7 @@ func (h *GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 
-	kvp := &kvs.KeyValuePair{
+	kvp := &pbkvs.GetRequest{
 		Key: []byte(vars["path"]),
 	}
 
@@ -149,7 +149,7 @@ func (h *PutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	kvp := &kvs.KeyValuePair{
+	kvp := &pbkvs.PutRequest{
 		Key:   []byte(vars["path"]),
 		Value: bodyBytes,
 	}
@@ -195,7 +195,7 @@ func (h *DeleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 
-	kvp := &kvs.KeyValuePair{
+	kvp := &pbkvs.DeleteRequest{
 		Key: []byte(vars["path"]),
 	}
 

@@ -17,20 +17,21 @@ package kvs
 import (
 	"log"
 
-	"github.com/mosuka/cete/protobuf/raft"
+	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 )
 
 type Server struct {
-	node      *raft.Node
+	nodeId   string
+	bindAddr string
+	grpcAddr string
+	httpAddr string
+	dataDir  string
+
 	bootstrap bool
 	joinAddr  string
 
 	raftServer *RaftServer
-
-	grpcService *GRPCService
-	grpcServer  *GRPCServer
-	grpcClient  *GRPCClient
-
+	grpcServer *GRPCServer
 	httpServer *HTTPServer
 
 	logger     *log.Logger
@@ -38,59 +39,52 @@ type Server struct {
 }
 
 func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string, dataDir string, joinAddr string, logger *log.Logger, httpLogger *log.Logger) (*Server, error) {
-	var err error
+	//var err error
+
+	bootstrap := joinAddr == "" || joinAddr == grpcAddr
+
+	raftServer, err := NewRaftServer(nodeId, bindAddr, grpcAddr, httpAddr, dataDir, bootstrap, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	//raftService := raftServer.transport.GetServerService()
+
+	kvsService, err := NewKvsService(raftServer, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	//grpcServer, err := NewGRPCServer(grpcAddr, raftService, kvsService, logger)
+	grpcServer, err := NewGRPCServer(grpcAddr, kvsService, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	httpServer, err := NewHTTPServer(httpAddr, grpcAddr, logger, httpLogger)
+	if err != nil {
+		return nil, err
+	}
 
 	server := &Server{
-		bootstrap:  joinAddr == "",
+		nodeId:     nodeId,
+		bindAddr:   bindAddr,
+		grpcAddr:   grpcAddr,
+		httpAddr:   httpAddr,
+		dataDir:    dataDir,
+		bootstrap:  bootstrap,
 		joinAddr:   joinAddr,
+		raftServer: raftServer,
+		grpcServer: grpcServer,
+		httpServer: httpServer,
 		logger:     logger,
 		httpLogger: httpLogger,
-	}
-
-	// create node information
-	server.node = &raft.Node{
-		Id:       nodeId,
-		BindAddr: bindAddr,
-		GrpcAddr: grpcAddr,
-		HttpAddr: httpAddr,
-		DataDir:  dataDir,
-	}
-
-	// create raft server
-	server.raftServer, err = NewRaftServer(server.node, server.bootstrap, server.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	// create gRPC service
-	server.grpcService, err = NewGRPCService(server.raftServer, server.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	// create gRPC server
-	server.grpcServer, err = NewGRPCServer(grpcAddr, server.grpcService, server.logger)
-	if err != nil {
-		return nil, err
-	}
-
-	// create gRPC client for HTTP server
-	server.grpcClient, err = NewGRPCClient(grpcAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	// create HTTP server
-	server.httpServer, err = NewHTTPServer(httpAddr, server.grpcClient, server.logger, server.httpLogger)
-	if err != nil {
-		return nil, err
 	}
 
 	return server, nil
 }
 
 func (s *Server) Start() {
-	// start Raft server
 	go func() {
 		err := s.raftServer.Start()
 		if err != nil {
@@ -100,7 +94,6 @@ func (s *Server) Start() {
 	}()
 	s.logger.Print("[INFO] Raft server started")
 
-	// start gRPC server
 	go func() {
 		err := s.grpcServer.Start()
 		if err != nil {
@@ -110,7 +103,6 @@ func (s *Server) Start() {
 	}()
 	s.logger.Print("[INFO] gRPC server started")
 
-	// start HTTP server
 	go func() {
 		err := s.httpServer.Start()
 		if err != nil {
@@ -135,7 +127,13 @@ func (s *Server) Start() {
 		}()
 
 		// join to the existing cluster
-		err = client.Join(s.node)
+		joinRequest := &pbkvs.JoinRequest{
+			Id:       s.nodeId,
+			BindAddr: s.bindAddr,
+			GrpcAddr: s.grpcAddr,
+			HttpAddr: s.httpAddr,
+		}
+		err = client.Join(joinRequest)
 		if err != nil {
 			s.logger.Printf("[ERR] %v", err)
 			return
@@ -144,25 +142,16 @@ func (s *Server) Start() {
 }
 
 func (s *Server) Stop() {
-	// stop HTTP server
 	err := s.httpServer.Stop()
 	if err != nil {
 		s.logger.Printf("[ERR] %v", err)
 	}
 
-	// close gRPC client
-	err = s.grpcClient.Close()
-	if err != nil {
-		s.logger.Printf("[ERR] %v", err)
-	}
-
-	// stop gRPC server
 	err = s.grpcServer.Stop()
 	if err != nil {
 		s.logger.Printf("[ERR] %v", err)
 	}
 
-	// stop Raft server
 	err = s.raftServer.Stop()
 	if err != nil {
 		s.logger.Printf("[ERR] %v", err)

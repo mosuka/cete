@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.12.1-alpine3.9
+FROM golang:1.14.0-alpine3.11
 
 ARG VERSION
 
@@ -32,7 +32,7 @@ RUN apk update && \
       VERSION="${VERSION}" \
       build
 
-FROM alpine:3.9
+FROM alpine:3.11
 
 MAINTAINER Minoru Osuka "minoru.osuka@gmail.com"
 
@@ -43,7 +43,7 @@ RUN apk update && \
 COPY --from=0 /go/src/github.com/mosuka/cete/bin/* /usr/bin/
 COPY --from=0 /go/src/github.com/mosuka/cete/docker-entrypoint.sh /usr/bin/
 
-EXPOSE 5050 6060 8080
+EXPOSE 7000 8000 9000
 
 ENTRYPOINT [ "/usr/bin/docker-entrypoint.sh" ]
 CMD        [ "cete", "--help" ]

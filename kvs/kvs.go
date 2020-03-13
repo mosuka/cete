@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 
 	"github.com/dgraph-io/badger"
 	"github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/protobuf/kvs"
+	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 )
 
 type KVS struct {
@@ -128,8 +128,8 @@ func (b *KVS) Delete(key []byte) error {
 	return nil
 }
 
-func (b *KVS) SnapshotItems() <-chan *kvs.KeyValuePair {
-	ch := make(chan *kvs.KeyValuePair, 1024)
+func (b *KVS) SnapshotItems() <-chan *pbkvs.KeyValuePair {
+	ch := make(chan *pbkvs.KeyValuePair, 1024)
 
 	go func() {
 		err := b.db.View(func(txn *badger.Txn) error {
@@ -148,7 +148,7 @@ func (b *KVS) SnapshotItems() <-chan *kvs.KeyValuePair {
 					continue
 				}
 
-				kvp := &kvs.KeyValuePair{
+				kvp := &pbkvs.KeyValuePair{
 					Key:   append([]byte{}, k...),
 					Value: append([]byte{}, v...),
 				}

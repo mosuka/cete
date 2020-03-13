@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,32 +40,32 @@ func main() {
 			Usage: "Start key value store server",
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "node-id, n",
+					Name:  "node-id",
 					Value: "",
 					Usage: "Node ID",
 				},
 				cli.StringFlag{
-					Name:  "bind-addr, b",
-					Value: ":6060",
+					Name:  "bind-addr",
+					Value: ":7000",
 					Usage: "Raft bind address",
 				},
 				cli.StringFlag{
-					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Name:  "grpc-addr",
+					Value: ":9000",
 					Usage: "gRPC Server listen address",
 				},
 				cli.StringFlag{
-					Name:  "http-addr, H",
-					Value: ":8080",
-					Usage: "HTTP server listen address",
+					Name:  "http-addr",
+					Value: ":8000",
+					Usage: "HTTP Server listen address",
 				},
 				cli.StringFlag{
-					Name:  "data-dir, d",
+					Name:  "data-dir",
 					Value: "./",
 					Usage: "Data directory",
 				},
 				cli.StringFlag{
-					Name:  "join-addr, j",
+					Name:  "join-addr",
 					Value: "",
 					Usage: "Existing gRPC server listen address to join to the cluster",
 				},
@@ -75,27 +75,27 @@ func main() {
 					Usage: "Log level",
 				},
 				cli.StringFlag{
-					Name:  "log-file, L",
+					Name:  "log-file",
 					Value: os.Stderr.Name(),
 					Usage: "Log file",
 				},
 				cli.IntFlag{
-					Name:  "log-max-size, S",
+					Name:  "log-max-size",
 					Value: 500,
 					Usage: "Max size of a log file (megabytes)",
 				},
 				cli.IntFlag{
-					Name:  "log-max-backups, B",
+					Name:  "log-max-backups",
 					Value: 3,
 					Usage: "Max backup count of log files",
 				},
 				cli.IntFlag{
-					Name:  "log-max-age, A",
+					Name:  "log-max-age",
 					Value: 30,
 					Usage: "Max age of a log file (days)",
 				},
 				cli.BoolFlag{
-					Name:  "log-compress, C",
+					Name:  "log-compress",
 					Usage: "Compress a log file",
 				},
 				cli.StringFlag{
@@ -161,8 +161,7 @@ func main() {
 					Usage: "gRPC address to connect to",
 				},
 			},
-			ArgsUsage: "[id]",
-			Action:    execNode,
+			Action: execNode,
 		},
 		{
 			Name:  "cluster",
@@ -239,6 +238,18 @@ func main() {
 				},
 			},
 			Action: execDelete,
+		},
+		{
+			Name:  "watch",
+			Usage: "Watch node",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "grpc-addr, g",
+					Value: ":5050",
+					Usage: "The gRPC address of the node for which to retrieve the node information",
+				},
+			},
+			Action: execWatch,
 		},
 	}
 

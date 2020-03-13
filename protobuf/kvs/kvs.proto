@@ -16,38 +16,94 @@ syntax = "proto3";
 
 import "google/protobuf/any.proto";
 import "google/protobuf/empty.proto";
-import "protobuf/raft/raft.proto";
 
 package kvs;
 
 option go_package = "github.com/mosuka/cete/protobuf/kvs";
 
 service KVS {
-    rpc Join (raft.Node) returns (google.protobuf.Empty) {}
-    rpc Leave (raft.Node) returns (google.protobuf.Empty) {}
-    rpc GetNode (google.protobuf.Empty) returns (raft.Node) {}
-    rpc GetCluster (google.protobuf.Empty) returns (raft.Cluster) {}
+    rpc Join (JoinRequest) returns (google.protobuf.Empty) {}
+    rpc Leave (LeaveRequest) returns (google.protobuf.Empty) {}
+    rpc Node (google.protobuf.Empty) returns (NodeResponse) {}
+    rpc Cluster (google.protobuf.Empty) returns (ClusterResponse) {}
+
     rpc Snapshot (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
-    rpc Get (KeyValuePair) returns (KeyValuePair) {}
-    rpc Put (KeyValuePair) returns (google.protobuf.Empty) {}
-    rpc Delete (KeyValuePair) returns (google.protobuf.Empty) {}
+    rpc Get (GetRequest) returns (GetResponse) {}
+    rpc Put (PutRequest) returns (google.protobuf.Empty) {}
+    rpc Delete (DeleteRequest) returns (google.protobuf.Empty) {}
+
+    rpc Watch (google.protobuf.Empty) returns (stream WatchResponse) {}
+}
+
+message Node {
+    string bind_addr = 1;
+    string grpc_addr = 2;
+    string http_addr = 3;
+    string state = 4;
+}
+
+message JoinRequest {
+    string id = 1;
+    string bind_addr = 2;
+    string grpc_addr = 3;
+    string http_addr = 4;
+}
+
+message LeaveRequest {
+    string id = 1;
+}
+
+message NodeResponse {
+    Node node = 1;
+}
+
+message ClusterResponse {
+    map<string, Node> nodes = 1;
+}
+
+message GetRequest {
+    bytes key = 1;
+}
+
+message GetResponse {
+    bytes value = 1;
+}
+
+message PutRequest {
+    bytes key = 1;
+    bytes value = 2;
+}
+
+message DeleteRequest {
+    bytes key = 1;
+}
+
+message KVSCommand {
+    enum Type {
+        UNKNOWN = 0;
+        JOIN = 1;
+        LEAVE = 2;
+        PUT = 3;
+        DELETE = 4;
+    }
+    Type type = 1;
+    google.protobuf.Any data = 2;
+}
+
+message WatchResponse {
+    enum Event {
+        UNKNOWN = 0;
+        JOIN = 1;
+        LEAVE = 2;
+        PUT = 3;
+        DELETE = 4;
+    }
+    Event event = 1;
+    google.protobuf.Any data = 2;
 }
 
 message KeyValuePair {
     bytes key = 1;
     bytes value = 2;
 }
-
-message KVSCommand {
-    enum Type {
-        UNKNOWN_COMMAND = 0;
-        SET_METADATA = 1;
-        DELETE_METADATA = 2;
-        PUT_KEY_VALUE_PAIR = 3;
-        DELETE_KEY_VALUE_PAIR = 4;
-    }
-    Type type = 1;
-    google.protobuf.Any data = 2;
-}
-
