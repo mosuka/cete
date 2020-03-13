@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import (
 	"log"
 	"net"
 
-	"github.com/mosuka/cete/protobuf/kvs"
+	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"google.golang.org/grpc"
 )
 
@@ -29,10 +29,12 @@ type GRPCServer struct {
 	logger *log.Logger
 }
 
-func NewGRPCServer(grpcAddr string, service *GRPCService, logger *log.Logger) (*GRPCServer, error) {
+//func NewGRPCServer(grpcAddr string, raftService raftgrpc.RaftServiceServer, kvsService pbkvs.KVSServer, logger *log.Logger) (*GRPCServer, error) {
+func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *log.Logger) (*GRPCServer, error) {
 	server := grpc.NewServer()
 
-	kvs.RegisterKVSServer(server, service)
+	//raftgrpc.RegisterRaftServiceServer(server, raftService)
+	pbkvs.RegisterKVSServer(server, kvsService)
 
 	listener, err := net.Listen("tcp", grpcAddr)
 	if err != nil {
@@ -56,7 +58,8 @@ func (s *GRPCServer) Start() error {
 }
 
 func (s *GRPCServer) Stop() error {
-	s.server.GracefulStop()
+	//s.server.GracefulStop()
+	s.server.Stop()
 
 	return nil
 }

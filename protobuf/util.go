@@ -19,16 +19,20 @@ import (
 	"reflect"
 
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/mosuka/cete/protobuf/kvs"
-	"github.com/mosuka/cete/protobuf/raft"
+	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"github.com/mosuka/cete/registry"
 )
 
 func init() {
 	registry.RegisterType("map[string]interface {}", reflect.TypeOf((map[string]interface{})(nil)))
 
-	registry.RegisterType("kvs.KeyValuePair", reflect.TypeOf(kvs.KeyValuePair{}))
-	registry.RegisterType("raft.Node", reflect.TypeOf(raft.Node{}))
+	registry.RegisterType("kvs.JoinRequest", reflect.TypeOf(pbkvs.JoinRequest{}))
+	registry.RegisterType("kvs.LeaveRequest", reflect.TypeOf(pbkvs.LeaveRequest{}))
+	registry.RegisterType("kvs.GetRequest", reflect.TypeOf(pbkvs.GetRequest{}))
+	registry.RegisterType("kvs.PutRequest", reflect.TypeOf(pbkvs.PutRequest{}))
+	registry.RegisterType("kvs.DeleteRequest", reflect.TypeOf(pbkvs.DeleteRequest{}))
+	registry.RegisterType("kvs.KeyValuePair", reflect.TypeOf(pbkvs.KeyValuePair{}))
+	registry.RegisterType("kvs.Node", reflect.TypeOf(pbkvs.Node{}))
 }
 
 func MarshalAny(message *any.Any) (interface{}, error) {

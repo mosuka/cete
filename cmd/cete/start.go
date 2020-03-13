@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
 package main
 
 import (
+	"github.com/mosuka/cete/http"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/mosuka/cete/http"
 	"github.com/mosuka/cete/kvs"
 	cetelog "github.com/mosuka/cete/log"
 	"github.com/urfave/cli"
@@ -34,38 +34,23 @@ func execStart(c *cli.Context) error {
 	dataDir := c.String("data-dir")
 	joinAddr := c.String("join-addr")
 
-	logLevel := c.String("log-level")
-	logFilename := c.String("log-file")
-	logMaxSize := c.Int("log-max-size")
-	logMaxBackups := c.Int("log-max-backups")
-	logMaxAge := c.Int("log-max-age")
-	logCompress := c.Bool("log-compress")
-
-	httpAccessLogFilename := c.String("http-access-log-file")
-	httpAccessLogMaxSize := c.Int("http-access-log-max-size")
-	httpAccessLogMaxBackups := c.Int("http-access-log-max-backups")
-	httpAccessLogMaxAge := c.Int("http-access-log-max-age")
-	httpAccessLogCompress := c.Bool("http-access-log-compress")
-
-	// Create logger
 	logger := cetelog.NewLogger(
-		logLevel,
+		c.String("log-level"),
 		"",
 		log.LstdFlags|log.Lmicroseconds|log.LUTC,
-		logFilename,
-		logMaxSize,
-		logMaxBackups,
-		logMaxAge,
-		logCompress,
+		c.String("log-file"),
+		c.Int("log-max-size"),
+		c.Int("log-max-backups"),
+		c.Int("log-max-age"),
+		c.Bool("log-compress"),
 	)
 
-	// Create HTTP access logger
 	httpAccessLogger := http.NewLogger(
-		httpAccessLogFilename,
-		httpAccessLogMaxSize,
-		httpAccessLogMaxBackups,
-		httpAccessLogMaxAge,
-		httpAccessLogCompress,
+		c.String("http-access-log-file"),
+		c.Int("http-access-log-max-size"),
+		c.Int("http-access-log-max-backups"),
+		c.Int("http-access-log-max-age"),
+		c.Bool("http-access-log-compress"),
 	)
 
 	svr, err := kvs.NewServer(nodeId, bindAddr, grpcAddr, httpAddr, dataDir, joinAddr, logger, httpAccessLogger)

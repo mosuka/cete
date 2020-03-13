@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,7 +35,12 @@ type HTTPServer struct {
 	httpLogger *log.Logger
 }
 
-func NewHTTPServer(httpAddr string, grpcClient *GRPCClient, logger *log.Logger, httpLogger *log.Logger) (*HTTPServer, error) {
+func NewHTTPServer(httpAddr string, grpcAddr string, logger *log.Logger, httpLogger *log.Logger) (*HTTPServer, error) {
+	grpcClient, err := NewGRPCClient(grpcAddr)
+	if err != nil {
+		return nil, err
+	}
+
 	listener, err := net.Listen("tcp", httpAddr)
 	if err != nil {
 		return nil, err
@@ -78,6 +83,11 @@ func (s *HTTPServer) Start() error {
 
 func (s *HTTPServer) Stop() error {
 	err := s.listener.Close()
+	if err != nil {
+		return err
+	}
+
+	err = s.grpcClient.Close()
 	if err != nil {
 		return err
 	}

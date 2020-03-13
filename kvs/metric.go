@@ -22,7 +22,7 @@ import (
 
 var (
 	namespace = "cete"
-	subsystem = "kvs"
+	subsystem = "grpc"
 
 	DurationSeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{

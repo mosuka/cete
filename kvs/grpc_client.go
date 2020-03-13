@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,8 +22,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	ceteerrors "github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/protobuf/kvs"
-	"github.com/mosuka/cete/protobuf/raft"
+	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -33,7 +32,7 @@ type GRPCClient struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	conn   *grpc.ClientConn
-	client kvs.KVSClient
+	client pbkvs.KVSClient
 
 	logger *log.Logger
 }
@@ -60,7 +59,7 @@ func NewGRPCClient(address string) (*GRPCClient, error) {
 		ctx:    ctx,
 		cancel: cancel,
 		conn:   conn,
-		client: kvs.NewKVSClient(conn),
+		client: pbkvs.NewKVSClient(conn),
 	}, nil
 }
 
@@ -73,7 +72,7 @@ func (c *GRPCClient) Close() error {
 	return c.ctx.Err()
 }
 
-func (c *GRPCClient) Join(req *raft.Node, opts ...grpc.CallOption) error {
+func (c *GRPCClient) Join(req *pbkvs.JoinRequest, opts ...grpc.CallOption) error {
 	_, err := c.client.Join(c.ctx, req, opts...)
 	if err != nil {
 		return err
@@ -82,7 +81,7 @@ func (c *GRPCClient) Join(req *raft.Node, opts ...grpc.CallOption) error {
 	return nil
 }
 
-func (c *GRPCClient) Leave(req *raft.Node, opts ...grpc.CallOption) error {
+func (c *GRPCClient) Leave(req *pbkvs.LeaveRequest, opts ...grpc.CallOption) error {
 	_, err := c.client.Leave(c.ctx, req, opts...)
 	if err != nil {
 		return err
@@ -91,26 +90,26 @@ func (c *GRPCClient) Leave(req *raft.Node, opts ...grpc.CallOption) error {
 	return nil
 }
 
-func (c *GRPCClient) GetNode(opts ...grpc.CallOption) (*raft.Node, error) {
-	node, err := c.client.GetNode(c.ctx, &empty.Empty{}, opts...)
+func (c *GRPCClient) Node(opts ...grpc.CallOption) (*pbkvs.NodeResponse, error) {
+	resp, err := c.client.Node(c.ctx, &empty.Empty{}, opts...)
 	if err != nil {
 		st, _ := status.FromError(err)
 
 		return nil, errors.New(st.Message())
 	}
 
-	return node, nil
+	return resp, nil
 }
 
-func (c *GRPCClient) GetCluster(opts ...grpc.CallOption) (*raft.Cluster, error) {
-	cluster, err := c.client.GetCluster(c.ctx, &empty.Empty{}, opts...)
+func (c *GRPCClient) Cluster(opts ...grpc.CallOption) (*pbkvs.ClusterResponse, error) {
+	resp, err := c.client.Cluster(c.ctx, &empty.Empty{}, opts...)
 	if err != nil {
 		st, _ := status.FromError(err)
 
 		return nil, errors.New(st.Message())
 	}
 
-	return cluster, nil
+	return resp, nil
 }
 
 func (c *GRPCClient) Snapshot(opts ...grpc.CallOption) error {
@@ -124,7 +123,7 @@ func (c *GRPCClient) Snapshot(opts ...grpc.CallOption) error {
 	return nil
 }
 
-func (c *GRPCClient) Get(req *kvs.KeyValuePair, opts ...grpc.CallOption) (*kvs.KeyValuePair, error) {
+func (c *GRPCClient) Get(req *pbkvs.GetRequest, opts ...grpc.CallOption) (*pbkvs.GetResponse, error) {
 	resp, err := c.client.Get(c.ctx, req, opts...)
 	if err != nil {
 		st, _ := status.FromError(err)
@@ -140,7 +139,7 @@ func (c *GRPCClient) Get(req *kvs.KeyValuePair, opts ...grpc.CallOption) (*kvs.K
 	return resp, nil
 }
 
-func (c *GRPCClient) Put(req *kvs.KeyValuePair, opts ...grpc.CallOption) error {
+func (c *GRPCClient) Put(req *pbkvs.PutRequest, opts ...grpc.CallOption) error {
 	_, err := c.client.Put(c.ctx, req, opts...)
 	if err != nil {
 		st, _ := status.FromError(err)
@@ -151,7 +150,7 @@ func (c *GRPCClient) Put(req *kvs.KeyValuePair, opts ...grpc.CallOption) error {
 	return nil
 }
 
-func (c *GRPCClient) Delete(req *kvs.KeyValuePair, opts ...grpc.CallOption) error {
+func (c *GRPCClient) Delete(req *pbkvs.DeleteRequest, opts ...grpc.CallOption) error {
 	_, err := c.client.Delete(c.ctx, req, opts...)
 	if err != nil {
 		st, _ := status.FromError(err)
@@ -160,4 +159,8 @@ func (c *GRPCClient) Delete(req *kvs.KeyValuePair, opts ...grpc.CallOption) erro
 	}
 
 	return nil
+}
+
+func (c *GRPCClient) Watch(req *empty.Empty, opts ...grpc.CallOption) (pbkvs.KVS_WatchClient, error) {
+	return c.client.Watch(c.ctx, req, opts...)
 }

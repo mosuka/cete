@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,12 +37,12 @@ func execCluster(c *cli.Context) error {
 		}
 	}()
 
-	cluster, err := client.GetCluster()
+	resp, err := client.Cluster()
 	if err != nil {
 		return err
 	}
 
-	clusterBytes, err := json.MarshalIndent(cluster, "", "  ")
+	clusterBytes, err := json.MarshalIndent(resp, "", "  ")
 	if err != nil {
 		return err
 	}

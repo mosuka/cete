@@ -20,22 +20,20 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
-	ceteerrors "github.com/mosuka/cete/errors"
 	"github.com/mosuka/cete/protobuf"
-	"github.com/mosuka/cete/protobuf/kvs"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
-	ceteraft "github.com/mosuka/cete/protobuf/raft"
 )
 
 type RaftFSM struct {
-	kvs *KVS
-
-	metadata map[string]*ceteraft.Node
-
 	logger *log.Logger
+
+	kvs        *KVS
+	metadata   map[string]*Metadata
+	nodesMutex sync.RWMutex
 }
 
 func NewRaftFSM(path string, logger *log.Logger) (*RaftFSM, error) {
@@ -50,9 +48,9 @@ func NewRaftFSM(path string, logger *log.Logger) (*RaftFSM, error) {
 	}
 
 	return &RaftFSM{
-		metadata: make(map[string]*ceteraft.Node, 0),
-		kvs:      kvs,
 		logger:   logger,
+		kvs:      kvs,
+		metadata: make(map[string]*Metadata, 0),
 	}, nil
 }
 
@@ -94,30 +92,36 @@ func (f *RaftFSM) applyDelete(key []byte) interface{} {
 	return nil
 }
 
-func (f *RaftFSM) GetMetadata(nodeId string) (*ceteraft.Node, error) {
-	node, exists := f.metadata[nodeId]
-	if !exists {
-		return nil, ceteerrors.ErrNotFound
+func (f *RaftFSM) getMetadata(nodeId string) *Metadata {
+	if metadata, exists := f.metadata[nodeId]; exists {
+		return metadata
+	} else {
+		return nil
 	}
-	if node == nil {
-		return nil, errors.New("nil")
-	}
-	value := node
-
-	return value, nil
 }
 
-func (f *RaftFSM) applySetMetadata(nodeId string, node *ceteraft.Node) interface{} {
-	f.metadata[nodeId] = node
+func (f *RaftFSM) setMetadata(nodeId string, metadata *Metadata) {
+	f.nodesMutex.Lock()
+	f.metadata[nodeId] = metadata
+	f.nodesMutex.Unlock()
+}
+
+func (f *RaftFSM) deleteMetadata(nodeId string) {
+	f.nodesMutex.Lock()
+	if _, exists := f.metadata[nodeId]; exists {
+		delete(f.metadata, nodeId)
+	}
+	f.nodesMutex.Unlock()
+}
+
+func (f *RaftFSM) applyJoin(nodeId string, grpcAddr string, httpAddr string) interface{} {
+	f.setMetadata(nodeId, &Metadata{GrpcAddr: grpcAddr, HttpAddr: httpAddr})
 
 	return nil
 }
 
-func (f *RaftFSM) applyDeleteMetadata(nodeId string) interface{} {
-	_, exists := f.metadata[nodeId]
-	if exists {
-		delete(f.metadata, nodeId)
-	}
+func (f *RaftFSM) applyLeave(nodeId string) interface{} {
+	f.deleteMetadata(nodeId)
 
 	return nil
 }
@@ -129,57 +133,51 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 		return err
 	}
 
-	f.logger.Printf("[DEBUG] Apply %v", c)
-
 	switch c.Type {
-	case pbkvs.KVSCommand_SET_METADATA:
-		// Any -> Node
-		nodeInstance, err := protobuf.MarshalAny(c.Data)
+	case pbkvs.KVSCommand_JOIN:
+		joinRequestInstance, err := protobuf.MarshalAny(c.Data)
 		if err != nil {
 			return err
 		}
-		if nodeInstance == nil {
+		if joinRequestInstance == nil {
 			return errors.New("nil")
 		}
-		metadata := nodeInstance.(*ceteraft.Node)
+		joinRequest := joinRequestInstance.(*pbkvs.JoinRequest)
 
-		return f.applySetMetadata(metadata.Id, metadata)
-	case pbkvs.KVSCommand_DELETE_METADATA:
-		// Any -> Node
-		metadataInstance, err := protobuf.MarshalAny(c.Data)
+		return f.applyJoin(joinRequest.Id, joinRequest.GrpcAddr, joinRequest.HttpAddr)
+	case pbkvs.KVSCommand_LEAVE:
+		leaveRequestInstance, err := protobuf.MarshalAny(c.Data)
 		if err != nil {
 			return err
 		}
-		if metadataInstance == nil {
+		if leaveRequestInstance == nil {
 			return errors.New("nil")
 		}
-		metadata := *metadataInstance.(*ceteraft.Node)
+		leaveRequest := *leaveRequestInstance.(*pbkvs.LeaveRequest)
 
-		return f.applyDeleteMetadata(metadata.Id)
-	case pbkvs.KVSCommand_PUT_KEY_VALUE_PAIR:
-		// Any -> KeyValuePair
-		kvpInstance, err := protobuf.MarshalAny(c.Data)
+		return f.applyLeave(leaveRequest.Id)
+	case pbkvs.KVSCommand_PUT:
+		putRequestInstance, err := protobuf.MarshalAny(c.Data)
 		if err != nil {
 			return err
 		}
-		if kvpInstance == nil {
+		if putRequestInstance == nil {
 			return errors.New("nil")
 		}
-		kvp := *kvpInstance.(*pbkvs.KeyValuePair)
+		putRequest := *putRequestInstance.(*pbkvs.PutRequest)
 
-		return f.applySet(kvp.Key, kvp.Value)
-	case pbkvs.KVSCommand_DELETE_KEY_VALUE_PAIR:
-		// Any -> KeyValuePair
-		kvpInstance, err := protobuf.MarshalAny(c.Data)
+		return f.applySet(putRequest.Key, putRequest.Value)
+	case pbkvs.KVSCommand_DELETE:
+		deleteRequestInstance, err := protobuf.MarshalAny(c.Data)
 		if err != nil {
 			return err
 		}
-		if kvpInstance == nil {
+		if deleteRequestInstance == nil {
 			return errors.New("nil")
 		}
-		kvp := *kvpInstance.(*pbkvs.KeyValuePair)
+		deleteRequest := *deleteRequestInstance.(*pbkvs.DeleteRequest)
 
-		return f.applyDelete(kvp.Key)
+		return f.applyDelete(deleteRequest.Key)
 	default:
 		return errors.New("command type not support")
 	}
@@ -209,7 +207,7 @@ func (f *RaftFSM) Restore(rc io.ReadCloser) error {
 	keyCount := 0
 	buff := proto.NewBuffer(data)
 	for {
-		kvp := &kvs.KeyValuePair{}
+		kvp := &pbkvs.KeyValuePair{}
 		err = buff.DecodeMessage(kvp)
 		if err == io.ErrUnexpectedEOF {
 			break

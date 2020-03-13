@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,21 +33,21 @@ func execNode(c *cli.Context) error {
 	defer func() {
 		err := client.Close()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			_, err = fmt.Fprintln(os.Stderr, err)
 		}
 	}()
 
-	nodes, err := client.GetNode()
+	resp, err := client.Node()
 	if err != nil {
 		return err
 	}
 
-	nodesBytes, err := json.MarshalIndent(nodes, "", "  ")
+	clusterBytes, err := json.MarshalIndent(resp, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(os.Stdout, fmt.Sprintf("%v\n", string(nodesBytes)))
+	fmt.Fprintln(os.Stdout, fmt.Sprintf("%v\n", string(clusterBytes)))
 
 	return nil
 }

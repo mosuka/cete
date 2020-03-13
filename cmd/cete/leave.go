@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 	"os"
 
 	"github.com/mosuka/cete/kvs"
-	"github.com/mosuka/cete/protobuf/raft"
+	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"github.com/urfave/cli"
 )
 
@@ -33,7 +33,7 @@ func execLeave(c *cli.Context) error {
 		return err
 	}
 
-	node := &raft.Node{
+	req := &pbkvs.LeaveRequest{
 		Id: id,
 	}
 
@@ -48,7 +48,7 @@ func execLeave(c *cli.Context) error {
 		}
 	}()
 
-	err = client.Leave(node)
+	err = client.Leave(req)
 	if err != nil {
 		return err
 	}

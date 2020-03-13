@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,22 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-syntax = "proto3";
+package kvs
 
-package raft;
-
-option go_package = "github.com/mosuka/cete/protobuf/raft";
-
-message Node {
-    string id = 1;
-    string bind_addr = 2;
-    string grpc_addr = 3;
-    string http_addr = 4;
-    bool leader = 5;
-    string data_dir = 6;
-}
-
-message Cluster {
-    string id = 1;
-    repeated Node nodes = 2;
+type Metadata struct {
+	GrpcAddr string
+	HttpAddr string
 }
