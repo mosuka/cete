@@ -7,26 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
-### Added
-
-### Changed
-
-
+- Refactoring #7 @mosuka
 
 ## [v0.1.1] - 2019-11-05
 
-### Added
-
-### Changed
-
-- Fix bugs in defer #5
-
-
+- Fix bugs in defer #5 @mosuka
 
 ## [v0.1.0] - 2019-03-30
 
-### Added
-
-- First release
-
-### Changed
+- First release @mosuka
