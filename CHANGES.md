@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Upgrade Raft #8 @mosuka
 - Refactoring #7 @mosuka
 
 ## [v0.1.1] - 2019-11-05
