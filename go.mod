@@ -4,8 +4,7 @@ go 1.12
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
-	github.com/dgraph-io/badger v1.5.4
-	github.com/dgryski/go-farm v0.0.0-20190323231341-8198c7b169ec // indirect
+	github.com/dgraph-io/badger v1.6.0
 	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/mux v1.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0

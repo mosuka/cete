@@ -31,10 +31,10 @@ type KVS struct {
 }
 
 func NewKVS(dir string, valueDir string, logger *zap.Logger) (*KVS, error) {
-	opts := badger.DefaultOptions
-	opts.Dir = dir
+	opts := badger.DefaultOptions(dir)
 	opts.ValueDir = valueDir
 	opts.SyncWrites = false
+	opts.Logger = nil
 
 	db, err := badger.Open(opts)
 	if err != nil {
@@ -70,12 +70,16 @@ func (b *KVS) Get(key []byte) ([]byte, error) {
 			b.logger.Error("failed to get item", zap.Binary("key", key), zap.String("err", err.Error()))
 			return err
 		}
-		v, err := item.Value()
+
+		err = item.Value(func(val []byte) error {
+			value = append([]byte{}, val...)
+			return nil
+		})
 		if err != nil {
-			b.logger.Error("failed to get value", zap.Binary("key", key), zap.String("err", err.Error()))
+			b.logger.Error("failed to get item value", zap.Binary("key", key), zap.String("err", err.Error()))
 			return err
 		}
-		value = append([]byte{}, v...)
+
 		return nil
 	})
 	if err == badger.ErrKeyNotFound {
@@ -149,16 +153,21 @@ func (b *KVS) SnapshotItems() <-chan *pbkvs.KeyValuePair {
 
 			for it.Rewind(); it.Valid(); it.Next() {
 				item := it.Item()
-				k := item.Key()
-				v, err := item.Value()
+				key := item.Key()
+
+				var value []byte
+				err := item.Value(func(val []byte) error {
+					value = append([]byte{}, val...)
+					return nil
+				})
 				if err != nil {
-					b.logger.Error("failed to get item", zap.Binary("key", k), zap.String("err", err.Error()))
+					b.logger.Error("failed to get item value", zap.Binary("key", key), zap.String("err", err.Error()))
 					return err
 				}
 
 				kvp := &pbkvs.KeyValuePair{
-					Key:   append([]byte{}, k...),
-					Value: append([]byte{}, v...),
+					Key:   append([]byte{}, key...),
+					Value: append([]byte{}, value...),
 				}
 
 				ch <- kvp
