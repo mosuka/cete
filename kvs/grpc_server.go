@@ -15,10 +15,14 @@
 package kvs
 
 import (
-	"log"
+	"math"
 	"net"
 
+	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -26,18 +30,35 @@ type GRPCServer struct {
 	server   *grpc.Server
 	listener net.Listener
 
-	logger *log.Logger
+	logger *zap.Logger
 }
 
 //func NewGRPCServer(grpcAddr string, raftService raftgrpc.RaftServiceServer, kvsService pbkvs.KVSServer, logger *log.Logger) (*GRPCServer, error) {
-func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *log.Logger) (*GRPCServer, error) {
-	server := grpc.NewServer()
+func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *zap.Logger) (*GRPCServer, error) {
+	grpcLogger := logger.Named("grpc")
+	server := grpc.NewServer(
+		grpc.MaxRecvMsgSize(math.MaxInt64),
+		grpc.MaxSendMsgSize(math.MaxInt64),
+		grpc.StreamInterceptor(
+			grpcmiddleware.ChainStreamServer(
+				grpcprometheus.StreamServerInterceptor,
+				grpczap.StreamServerInterceptor(grpcLogger),
+			),
+		),
+		grpc.UnaryInterceptor(
+			grpcmiddleware.ChainUnaryServer(
+				grpcprometheus.UnaryServerInterceptor,
+				grpczap.UnaryServerInterceptor(grpcLogger),
+			),
+		),
+	)
 
 	//raftgrpc.RegisterRaftServiceServer(server, raftService)
 	pbkvs.RegisterKVSServer(server, kvsService)
 
 	listener, err := net.Listen("tcp", grpcAddr)
 	if err != nil {
+		logger.Error("failed to create listener", zap.String("addr", grpcAddr), zap.Error(err))
 		return nil, err
 	}
 
@@ -51,6 +72,7 @@ func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *log.Logg
 func (s *GRPCServer) Start() error {
 	err := s.server.Serve(s.listener)
 	if err != nil {
+		s.logger.Error("failed to start server", zap.String("addr", s.listener.Addr().String()), zap.Error(err))
 		return err
 	}
 
@@ -60,6 +82,7 @@ func (s *GRPCServer) Start() error {
 func (s *GRPCServer) Stop() error {
 	//s.server.GracefulStop()
 	s.server.Stop()
+	s.logger.Info("server stopped")
 
 	return nil
 }

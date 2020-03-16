@@ -15,9 +15,8 @@
 package kvs
 
 import (
-	"log"
-
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"go.uber.org/zap"
 )
 
 type Server struct {
@@ -34,35 +33,44 @@ type Server struct {
 	grpcServer *GRPCServer
 	httpServer *HTTPServer
 
-	logger     *log.Logger
-	httpLogger *log.Logger
+	logger *zap.Logger
 }
 
-func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string, dataDir string, joinAddr string, logger *log.Logger, httpLogger *log.Logger) (*Server, error) {
-	//var err error
-
+func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string, dataDir string, joinAddr string, logger *zap.Logger) (*Server, error) {
 	bootstrap := joinAddr == "" || joinAddr == grpcAddr
 
 	raftServer, err := NewRaftServer(nodeId, bindAddr, grpcAddr, httpAddr, dataDir, bootstrap, logger)
 	if err != nil {
+		logger.Error("failed to create Raft server",
+			zap.String("id", nodeId),
+			zap.String("bind_addr", bindAddr),
+			zap.String("grpc_addr", grpcAddr),
+			zap.String("http_addr", httpAddr),
+			zap.String("data_dir", dataDir),
+			zap.Bool("bootstrap", bootstrap),
+			zap.String("err", err.Error()),
+		)
 		return nil, err
 	}
 
 	//raftService := raftServer.transport.GetServerService()
 
-	kvsService, err := NewKvsService(raftServer, logger)
+	kvsService, err := NewGRPCService(raftServer, logger)
 	if err != nil {
+		logger.Error("failed to create key value store service", zap.Error(err))
 		return nil, err
 	}
 
 	//grpcServer, err := NewGRPCServer(grpcAddr, raftService, kvsService, logger)
 	grpcServer, err := NewGRPCServer(grpcAddr, kvsService, logger)
 	if err != nil {
+		logger.Error("failed to create gRPC server", zap.String("grpc_addr", grpcAddr), zap.Error(err))
 		return nil, err
 	}
 
-	httpServer, err := NewHTTPServer(httpAddr, grpcAddr, logger, httpLogger)
+	httpServer, err := NewHTTPServer(httpAddr, grpcAddr, logger)
 	if err != nil {
+		logger.Error("failed to create HTTP server", zap.String("http_addr", httpAddr), zap.String("grpc_addr", grpcAddr), zap.Error(err))
 		return nil, err
 	}
 
@@ -78,7 +86,6 @@ func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string,
 		grpcServer: grpcServer,
 		httpServer: httpServer,
 		logger:     logger,
-		httpLogger: httpLogger,
 	}
 
 	return server, nil
@@ -86,43 +93,37 @@ func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string,
 
 func (s *Server) Start() {
 	go func() {
-		err := s.raftServer.Start()
-		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+		if err := s.raftServer.Start(); err != nil {
+			s.logger.Error("failed to start Raft server", zap.Error(err))
 			return
 		}
 	}()
-	s.logger.Print("[INFO] Raft server started")
 
 	go func() {
-		err := s.grpcServer.Start()
-		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+		if err := s.grpcServer.Start(); err != nil {
+			s.logger.Error("failed to start gRPC server", zap.Error(err))
 			return
 		}
 	}()
-	s.logger.Print("[INFO] gRPC server started")
 
 	go func() {
 		err := s.httpServer.Start()
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to start HTTP server", zap.Error(err))
 			return
 		}
 	}()
-	s.logger.Print("[INFO] HTTP server started")
 
 	if !s.bootstrap {
 		// create gRPC client
 		client, err := NewGRPCClient(s.joinAddr)
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to create gRPC client", zap.String("addr", s.joinAddr), zap.Error(err))
 			return
 		}
 		defer func() {
-			err := client.Close()
-			if err != nil {
-				s.logger.Printf("[ERR] %v", err)
+			if err := client.Close(); err != nil {
+				s.logger.Error("failed to close gRPC client", zap.String("addr", s.joinAddr), zap.Error(err))
 			}
 		}()
 
@@ -133,27 +134,23 @@ func (s *Server) Start() {
 			GrpcAddr: s.grpcAddr,
 			HttpAddr: s.httpAddr,
 		}
-		err = client.Join(joinRequest)
-		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+		if err = client.Join(joinRequest); err != nil {
+			s.logger.Error("failed to join node to the cluster", zap.Any("req", joinRequest), zap.Error(err))
 			return
 		}
 	}
 }
 
 func (s *Server) Stop() {
-	err := s.httpServer.Stop()
-	if err != nil {
-		s.logger.Printf("[ERR] %v", err)
+	if err := s.httpServer.Stop(); err != nil {
+		s.logger.Error("failed to stop HTTP server", zap.Error(err))
 	}
 
-	err = s.grpcServer.Stop()
-	if err != nil {
-		s.logger.Printf("[ERR] %v", err)
+	if err := s.grpcServer.Stop(); err != nil {
+		s.logger.Error("failed to stop gRPC server", zap.Error(err))
 	}
 
-	err = s.raftServer.Stop()
-	if err != nil {
-		s.logger.Printf("[ERR] %v", err)
+	if err := s.raftServer.Stop(); err != nil {
+		s.logger.Error("failed to stop Raft server", zap.Error(err))
 	}
 }

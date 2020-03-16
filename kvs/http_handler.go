@@ -15,54 +15,49 @@
 package kvs
 
 import (
+	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"time"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/mosuka/cete/errors"
-	cetehttp "github.com/mosuka/cete/http"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"github.com/mosuka/cete/version"
+	"go.uber.org/zap"
 )
 
 type RootHandler struct {
-	logger *log.Logger
+	logger *zap.Logger
 }
 
-func NewRootHandler(logger *log.Logger) *RootHandler {
+func NewRootHandler(logger *zap.Logger) *RootHandler {
 	return &RootHandler{
 		logger: logger,
 	}
 }
 
 func (h *RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	status := http.StatusOK
-	content := make([]byte, 0)
-	defer func() {
-		cetehttp.WriteResponse(w, content, status, h.logger)
-		cetehttp.RecordMetrics(start, status, w, r, h.logger)
-	}()
+	httpStatus := http.StatusOK
 
-	msgMap := map[string]interface{}{
-		"version": version.Version,
-		"status":  status,
-	}
+	content, _ := json.Marshal(
+		map[string]interface{}{
+			"version": version.Version,
+		},
+	)
 
-	content, err := cetehttp.NewJSONMessage(msgMap)
-	if err != nil {
-		h.logger.Printf("[ERR] %v", err)
-	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.FormatInt(int64(len(content)), 10))
+	w.WriteHeader(httpStatus)
+	_, _ = w.Write(content)
 }
 
 type GetHandler struct {
 	client *GRPCClient
-	logger *log.Logger
+	logger *zap.Logger
 }
 
-func NewGetHandler(client *GRPCClient, logger *log.Logger) *GetHandler {
+func NewGetHandler(client *GRPCClient, logger *zap.Logger) *GetHandler {
 	return &GetHandler{
 		client: client,
 		logger: logger,
@@ -70,51 +65,46 @@ func NewGetHandler(client *GRPCClient, logger *log.Logger) *GetHandler {
 }
 
 func (h *GetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	httpStatus := http.StatusOK
-	content := make([]byte, 0)
-	defer func() {
-		cetehttp.WriteResponse(w, content, httpStatus, h.logger)
-		cetehttp.RecordMetrics(start, httpStatus, w, r, h.logger)
-	}()
-
 	vars := mux.Vars(r)
 
-	kvp := &pbkvs.GetRequest{
+	req := &pbkvs.GetRequest{
 		Key: []byte(vars["path"]),
 	}
 
-	retKVP, err := h.client.Get(kvp)
-	if err != nil {
+	content := make([]byte, 0)
+	httpStatus := 0
+
+	if resp, err := h.client.Get(req); err != nil {
 		switch err {
 		case errors.ErrNotFound:
 			httpStatus = http.StatusNotFound
+			h.logger.Error("not found", zap.String("key", string(req.Key)), zap.Error(err))
 		default:
+			content, _ = json.Marshal(
+				map[string]interface{}{
+					"error": err.Error(),
+				},
+			)
 			httpStatus = http.StatusInternalServerError
+			h.logger.Error("failed to get data", zap.String("key", string(req.Key)), zap.Error(err))
 		}
-
-		msgMap := map[string]interface{}{
-			"message": err.Error(),
-			"status":  httpStatus,
-		}
-
-		content, err = cetehttp.NewJSONMessage(msgMap)
-		if err != nil {
-			h.logger.Printf("[ERR] %v", err)
-		}
-
-		return
+	} else {
+		content = resp.Value
+		httpStatus = http.StatusOK
 	}
 
-	content = retKVP.Value
+	w.Header().Set("Content-Type", http.DetectContentType(content))
+	w.Header().Set("Content-Length", strconv.FormatInt(int64(len(content)), 10))
+	w.WriteHeader(httpStatus)
+	_, _ = w.Write(content)
 }
 
 type PutHandler struct {
 	client *GRPCClient
-	logger *log.Logger
+	logger *zap.Logger
 }
 
-func NewPutHandler(client *GRPCClient, logger *log.Logger) *PutHandler {
+func NewPutHandler(client *GRPCClient, logger *zap.Logger) *PutHandler {
 	return &PutHandler{
 		client: client,
 		logger: logger,
@@ -122,62 +112,49 @@ func NewPutHandler(client *GRPCClient, logger *log.Logger) *PutHandler {
 }
 
 func (h *PutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	httpStatus := http.StatusOK
-	content := make([]byte, 0)
-	defer func() {
-		cetehttp.WriteResponse(w, content, httpStatus, h.logger)
-		cetehttp.RecordMetrics(start, httpStatus, w, r, h.logger)
-	}()
-
 	vars := mux.Vars(r)
 
-	bodyBytes, err := ioutil.ReadAll(r.Body)
-	if err != nil {
+	content := make([]byte, 0)
+	httpStatus := http.StatusOK
+
+	if bodyBytes, err := ioutil.ReadAll(r.Body); err != nil {
+		content, _ = json.Marshal(
+			map[string]interface{}{
+				"error": err.Error(),
+			},
+		)
 		httpStatus = http.StatusInternalServerError
-
-		msgMap := map[string]interface{}{
-			"message": err.Error(),
-			"status":  httpStatus,
+		h.logger.Error("failed to read data", zap.Error(err))
+	} else {
+		req := &pbkvs.PutRequest{
+			Key:   []byte(vars["path"]),
+			Value: bodyBytes,
 		}
-
-		content, err = cetehttp.NewJSONMessage(msgMap)
-		if err != nil {
-			h.logger.Printf("[ERR] %v", err)
+		if err = h.client.Put(req); err != nil {
+			content, _ = json.Marshal(
+				map[string]interface{}{
+					"error": err.Error(),
+				},
+			)
+			httpStatus = http.StatusInternalServerError
+			h.logger.Error("failed to put data", zap.Error(err))
+		} else {
+			httpStatus = http.StatusOK
 		}
-
-		return
 	}
 
-	kvp := &pbkvs.PutRequest{
-		Key:   []byte(vars["path"]),
-		Value: bodyBytes,
-	}
-
-	err = h.client.Put(kvp)
-	if err != nil {
-		httpStatus = http.StatusInternalServerError
-
-		msgMap := map[string]interface{}{
-			"message": err.Error(),
-			"status":  httpStatus,
-		}
-
-		content, err = cetehttp.NewJSONMessage(msgMap)
-		if err != nil {
-			h.logger.Printf("[ERR] %v", err)
-		}
-
-		return
-	}
+	w.Header().Set("Content-Type", http.DetectContentType(content))
+	w.Header().Set("Content-Length", strconv.FormatInt(int64(len(content)), 10))
+	w.WriteHeader(httpStatus)
+	_, _ = w.Write(content)
 }
 
 type DeleteHandler struct {
 	client *GRPCClient
-	logger *log.Logger
+	logger *zap.Logger
 }
 
-func NewDeleteHandler(client *GRPCClient, logger *log.Logger) *DeleteHandler {
+func NewDeleteHandler(client *GRPCClient, logger *zap.Logger) *DeleteHandler {
 	return &DeleteHandler{
 		client: client,
 		logger: logger,
@@ -185,34 +162,29 @@ func NewDeleteHandler(client *GRPCClient, logger *log.Logger) *DeleteHandler {
 }
 
 func (h *DeleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	httpStatus := http.StatusOK
-	content := make([]byte, 0)
-	defer func() {
-		cetehttp.WriteResponse(w, content, httpStatus, h.logger)
-		cetehttp.RecordMetrics(start, httpStatus, w, r, h.logger)
-	}()
-
 	vars := mux.Vars(r)
 
-	kvp := &pbkvs.DeleteRequest{
+	req := &pbkvs.DeleteRequest{
 		Key: []byte(vars["path"]),
 	}
 
-	err := h.client.Delete(kvp)
-	if err != nil {
+	content := make([]byte, 0)
+	httpStatus := http.StatusOK
+
+	if err := h.client.Delete(req); err != nil {
+		content, _ = json.Marshal(
+			map[string]interface{}{
+				"error": err.Error(),
+			},
+		)
 		httpStatus = http.StatusInternalServerError
-
-		msgMap := map[string]interface{}{
-			"message": err.Error(),
-			"status":  httpStatus,
-		}
-
-		content, err = cetehttp.NewJSONMessage(msgMap)
-		if err != nil {
-			h.logger.Printf("[ERR] %v", err)
-		}
-
-		return
+		h.logger.Error("failed to delete data", zap.Error(err))
+	} else {
+		httpStatus = http.StatusOK
 	}
+
+	w.Header().Set("Content-Type", http.DetectContentType(content))
+	w.Header().Set("Content-Length", strconv.FormatInt(int64(len(content)), 10))
+	w.WriteHeader(httpStatus)
+	_, _ = w.Write(content)
 }

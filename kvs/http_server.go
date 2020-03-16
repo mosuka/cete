@@ -15,14 +15,14 @@
 package kvs
 
 import (
-	"log"
 	"net"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	accesslog "github.com/mash/go-accesslog"
-	cetehttp "github.com/mosuka/cete/http"
+	"github.com/mash/go-accesslog"
+	cetelog "github.com/mosuka/cete/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
 )
 
 type HTTPServer struct {
@@ -31,18 +31,20 @@ type HTTPServer struct {
 
 	grpcClient *GRPCClient
 
-	logger     *log.Logger
-	httpLogger *log.Logger
+	logger     *zap.Logger
+	httpLogger *zap.Logger
 }
 
-func NewHTTPServer(httpAddr string, grpcAddr string, logger *log.Logger, httpLogger *log.Logger) (*HTTPServer, error) {
+func NewHTTPServer(httpAddr string, grpcAddr string, logger *zap.Logger) (*HTTPServer, error) {
 	grpcClient, err := NewGRPCClient(grpcAddr)
 	if err != nil {
+		logger.Error("failed to create gRPC client", zap.String("addr", grpcAddr), zap.Error(err))
 		return nil, err
 	}
 
 	listener, err := net.Listen("tcp", httpAddr)
 	if err != nil {
+		logger.Error("failed to create listener", zap.String("addr", httpAddr), zap.Error(err))
 		return nil, err
 	}
 
@@ -60,7 +62,7 @@ func NewHTTPServer(httpAddr string, grpcAddr string, logger *log.Logger, httpLog
 		router:     router,
 		grpcClient: grpcClient,
 		logger:     logger,
-		httpLogger: httpLogger,
+		httpLogger: logger.Named("http"),
 	}, nil
 }
 
@@ -69,12 +71,13 @@ func (s *HTTPServer) Start() error {
 		s.listener,
 		accesslog.NewLoggingHandler(
 			s.router,
-			cetehttp.ApacheCombinedLogger{
+			cetelog.HTTPLogger{
 				Logger: s.httpLogger,
 			},
 		),
 	)
 	if err != nil {
+		s.logger.Error("failed to start listener", zap.String("addr", s.listener.Addr().String()), zap.Error(err))
 		return err
 	}
 
@@ -84,11 +87,13 @@ func (s *HTTPServer) Start() error {
 func (s *HTTPServer) Stop() error {
 	err := s.listener.Close()
 	if err != nil {
+		s.logger.Error("failed to close listener", zap.String("addr", s.listener.Addr().String()), zap.Error(err))
 		return err
 	}
 
 	err = s.grpcClient.Close()
 	if err != nil {
+		s.logger.Error("failed to close gRPC client", zap.String("addr", s.grpcClient.conn.Target()), zap.Error(err))
 		return err
 	}
 

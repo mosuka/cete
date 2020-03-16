@@ -15,8 +15,6 @@
 package main
 
 import (
-	"github.com/mosuka/cete/http"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,8 +34,6 @@ func execStart(c *cli.Context) error {
 
 	logger := cetelog.NewLogger(
 		c.String("log-level"),
-		"",
-		log.LstdFlags|log.Lmicroseconds|log.LUTC,
 		c.String("log-file"),
 		c.Int("log-max-size"),
 		c.Int("log-max-backups"),
@@ -45,15 +41,7 @@ func execStart(c *cli.Context) error {
 		c.Bool("log-compress"),
 	)
 
-	httpAccessLogger := http.NewLogger(
-		c.String("http-access-log-file"),
-		c.Int("http-access-log-max-size"),
-		c.Int("http-access-log-max-backups"),
-		c.Int("http-access-log-max-age"),
-		c.Bool("http-access-log-compress"),
-	)
-
-	svr, err := kvs.NewServer(nodeId, bindAddr, grpcAddr, httpAddr, dataDir, joinAddr, logger, httpAccessLogger)
+	svr, err := kvs.NewServer(nodeId, bindAddr, grpcAddr, httpAddr, dataDir, joinAddr, logger)
 	if err != nil {
 		return err
 	}

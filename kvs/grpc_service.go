@@ -16,7 +16,6 @@ package kvs
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
 
@@ -26,20 +25,21 @@ import (
 	"github.com/mosuka/cete/errors"
 	"github.com/mosuka/cete/protobuf"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type KvsService struct {
+type GRPCService struct {
 	raftServer *RaftServer
-	logger     *log.Logger
+	logger     *zap.Logger
 
 	watchMutex sync.RWMutex
 	watchChans map[chan pbkvs.WatchResponse]struct{}
 }
 
-func NewKvsService(raftServer *RaftServer, logger *log.Logger) (*KvsService, error) {
-	return &KvsService{
+func NewGRPCService(raftServer *RaftServer, logger *zap.Logger) (*GRPCService, error) {
+	return &GRPCService{
 		raftServer: raftServer,
 		logger:     logger,
 
@@ -47,34 +47,33 @@ func NewKvsService(raftServer *RaftServer, logger *log.Logger) (*KvsService, err
 	}, nil
 }
 
-func (s *KvsService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.Empty, error) {
-	s.logger.Printf("[INFO] %v", req)
-
+func (s *GRPCService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	if s.raftServer.raft.State() != raft.Leader {
 		// forward to leader node
-		leaderAddr, err := s.raftServer.LeaderAddress(1 * time.Second)
+		timeout := 1 * time.Second
+		leaderAddr, err := s.raftServer.LeaderAddress(timeout)
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to get leader address", zap.Duration("timeout", timeout), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
 		client, err := NewGRPCClient(string(leaderAddr))
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to create gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 		defer func() {
 			err := client.Close()
 			if err != nil {
-				s.logger.Printf("[ERR] %v", err)
+				s.logger.Error("failed to close gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			}
 		}()
 
 		err = client.Join(req)
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to join node to the cluster", zap.Any("req", req), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -83,13 +82,14 @@ func (s *KvsService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.E
 
 	err := s.raftServer.Join(req)
 	if err != nil {
+		s.logger.Error("failed to join node to the cluster", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	// notify
 	joinReqAny := &any.Any{}
 	if err := protobuf.UnmarshalAny(req, joinReqAny); err != nil {
-		s.logger.Printf("[ERR] %v", err)
+		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
 	} else {
 		watchResp := &pbkvs.WatchResponse{
 			Event: pbkvs.WatchResponse_JOIN,
@@ -103,34 +103,33 @@ func (s *KvsService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.E
 	return resp, nil
 }
 
-func (s *KvsService) Leave(ctx context.Context, req *pbkvs.LeaveRequest) (*empty.Empty, error) {
-	s.logger.Printf("[INFO] leave %v", req)
-
+func (s *GRPCService) Leave(ctx context.Context, req *pbkvs.LeaveRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	if s.raftServer.raft.State() != raft.Leader {
 		// forward to leader node
-		leaderAddr, err := s.raftServer.LeaderAddress(1 * time.Second)
+		timeout := 1 * time.Second
+		leaderAddr, err := s.raftServer.LeaderAddress(timeout)
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to get leader address", zap.Duration("timeout", timeout), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
 		client, err := NewGRPCClient(string(leaderAddr))
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to create gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 		defer func() {
 			err := client.Close()
 			if err != nil {
-				s.logger.Printf("[ERR] %v", err)
+				s.logger.Error("failed to close gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			}
 		}()
 
 		err = client.Leave(req)
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to leave node from the cluster", zap.Any("req", req), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -139,13 +138,14 @@ func (s *KvsService) Leave(ctx context.Context, req *pbkvs.LeaveRequest) (*empty
 
 	err := s.raftServer.Leave(req)
 	if err != nil {
+		s.logger.Error("failed to leave node from the cluster", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	// notify
 	leaveReqAny := &any.Any{}
 	if err := protobuf.UnmarshalAny(req, leaveReqAny); err != nil {
-		s.logger.Printf("[ERR] %v", err)
+		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
 	} else {
 		watchResp := &pbkvs.WatchResponse{
 			Event: pbkvs.WatchResponse_LEAVE,
@@ -159,55 +159,47 @@ func (s *KvsService) Leave(ctx context.Context, req *pbkvs.LeaveRequest) (*empty
 	return resp, nil
 }
 
-func (s *KvsService) Node(ctx context.Context, req *empty.Empty) (*pbkvs.NodeResponse, error) {
-	s.logger.Printf("[INFO] get node %v", req)
-
+func (s *GRPCService) Node(ctx context.Context, req *empty.Empty) (*pbkvs.NodeResponse, error) {
 	resp := &pbkvs.NodeResponse{}
 
 	var err error
 
 	resp, err = s.raftServer.Node()
 	if err != nil {
+		s.logger.Error("failed to get node info", zap.String("err", err.Error()))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	return resp, nil
 }
 
-func (s *KvsService) Cluster(ctx context.Context, req *empty.Empty) (*pbkvs.ClusterResponse, error) {
-	s.logger.Printf("[INFO] get cluster %v", req)
-
+func (s *GRPCService) Cluster(ctx context.Context, req *empty.Empty) (*pbkvs.ClusterResponse, error) {
 	resp := &pbkvs.ClusterResponse{}
 
 	var err error
 
 	resp, err = s.raftServer.Cluster()
 	if err != nil {
+		s.logger.Error("failed to get cluster info", zap.String("err", err.Error()))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	return resp, nil
 }
 
-func (s *KvsService) Snapshot(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
-	s.logger.Printf("[INFO] %v", req)
-
+func (s *GRPCService) Snapshot(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	err := s.raftServer.Snapshot()
 	if err != nil {
+		s.logger.Error("failed to snapshot data", zap.String("err", err.Error()))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	return resp, nil
 }
 
-func (s *KvsService) Get(ctx context.Context, req *pbkvs.GetRequest) (*pbkvs.GetResponse, error) {
-	start := time.Now()
-	defer RecordMetrics(start, "get")
-
-	s.logger.Printf("[INFO] get %v", req)
-
+func (s *GRPCService) Get(ctx context.Context, req *pbkvs.GetRequest) (*pbkvs.GetResponse, error) {
 	resp := &pbkvs.GetResponse{}
 
 	var err error
@@ -216,8 +208,10 @@ func (s *KvsService) Get(ctx context.Context, req *pbkvs.GetRequest) (*pbkvs.Get
 	if err != nil {
 		switch err {
 		case errors.ErrNotFound:
+			s.logger.Debug("key not found", zap.Any("req", req), zap.String("err", err.Error()))
 			return resp, status.Error(codes.NotFound, err.Error())
 		default:
+			s.logger.Debug("failed to get data", zap.Any("req", req), zap.String("err", err.Error()))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 	}
@@ -225,35 +219,33 @@ func (s *KvsService) Get(ctx context.Context, req *pbkvs.GetRequest) (*pbkvs.Get
 	return resp, nil
 }
 
-func (s *KvsService) Put(ctx context.Context, req *pbkvs.PutRequest) (*empty.Empty, error) {
-	start := time.Now()
-	defer RecordMetrics(start, "put")
-
+func (s *GRPCService) Put(ctx context.Context, req *pbkvs.PutRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	if s.raftServer.raft.State() != raft.Leader {
 		// forward to leader node
-		leaderAddr, err := s.raftServer.LeaderAddress(1 * time.Second)
+		timeout := 1 * time.Second
+		leaderAddr, err := s.raftServer.LeaderAddress(timeout)
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to get leader address", zap.Duration("timeout", timeout), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
 		client, err := NewGRPCClient(string(leaderAddr))
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to create gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 		defer func() {
 			err := client.Close()
 			if err != nil {
-				s.logger.Printf("[ERR] %v", err)
+				s.logger.Error("failed to close gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			}
 		}()
 
 		err = client.Put(req)
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Error("failed to put data", zap.Any("req", req), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -263,13 +255,14 @@ func (s *KvsService) Put(ctx context.Context, req *pbkvs.PutRequest) (*empty.Emp
 	// put value by key
 	err := s.raftServer.Set(req)
 	if err != nil {
+		s.logger.Error("failed to put data", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	// notify
 	putReqAny := &any.Any{}
 	if err := protobuf.UnmarshalAny(req, putReqAny); err != nil {
-		s.logger.Printf("[ERR] %v", err)
+		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
 	} else {
 		watchResp := &pbkvs.WatchResponse{
 			Event: pbkvs.WatchResponse_PUT,
@@ -283,24 +276,50 @@ func (s *KvsService) Put(ctx context.Context, req *pbkvs.PutRequest) (*empty.Emp
 	return resp, nil
 }
 
-func (s *KvsService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*empty.Empty, error) {
-	start := time.Now()
-	defer RecordMetrics(start, "delete")
-
-	s.logger.Printf("[INFO] delete %v", req)
-
+func (s *GRPCService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
+
+	if s.raftServer.raft.State() != raft.Leader {
+		// forward to leader node
+		timeout := 1 * time.Second
+		leaderAddr, err := s.raftServer.LeaderAddress(timeout)
+		if err != nil {
+			s.logger.Error("failed to get leader address", zap.Duration("timeout", timeout), zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		client, err := NewGRPCClient(string(leaderAddr))
+		if err != nil {
+			s.logger.Error("failed to create gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+		defer func() {
+			err := client.Close()
+			if err != nil {
+				s.logger.Error("failed to close gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
+			}
+		}()
+
+		err = client.Delete(req)
+		if err != nil {
+			s.logger.Error("failed to delete data", zap.Any("req", req), zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		return resp, nil
+	}
 
 	// delete value by key
 	err := s.raftServer.Delete(req)
 	if err != nil {
+		s.logger.Error("failed to delete data", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	// notify
 	deleteReqAny := &any.Any{}
 	if err := protobuf.UnmarshalAny(req, deleteReqAny); err != nil {
-		s.logger.Printf("[ERR] %v", err)
+		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
 	} else {
 		watchResp := &pbkvs.WatchResponse{
 			Event: pbkvs.WatchResponse_DELETE,
@@ -314,7 +333,7 @@ func (s *KvsService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*emp
 	return resp, nil
 }
 
-func (s *KvsService) Watch(req *empty.Empty, server pbkvs.KVS_WatchServer) error {
+func (s *GRPCService) Watch(req *empty.Empty, server pbkvs.KVS_WatchServer) error {
 	chans := make(chan pbkvs.WatchResponse)
 
 	s.watchMutex.Lock()
@@ -329,9 +348,8 @@ func (s *KvsService) Watch(req *empty.Empty, server pbkvs.KVS_WatchServer) error
 	}()
 
 	for resp := range chans {
-		err := server.Send(&resp)
-		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+		if err := server.Send(&resp); err != nil {
+			s.logger.Error("failed to send watch data", zap.Any("resp", resp), zap.String("err", err.Error()))
 			return status.Error(codes.Internal, err.Error())
 		}
 	}
