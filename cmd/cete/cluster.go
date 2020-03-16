@@ -47,7 +47,7 @@ func execCluster(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintln(os.Stdout, fmt.Sprintf("%v\n", string(clusterBytes)))
+	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%v\n", string(clusterBytes)))
 
 	return nil
 }

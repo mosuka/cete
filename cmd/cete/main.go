@@ -40,7 +40,7 @@ func main() {
 			Usage: "Start key value store server",
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "node-id",
+					Name:  "id",
 					Value: "",
 					Usage: "Node ID",
 				},
@@ -65,7 +65,7 @@ func main() {
 					Usage: "Data directory",
 				},
 				cli.StringFlag{
-					Name:  "join-addr",
+					Name:  "peer-grpc-addr",
 					Value: "",
 					Usage: "Existing gRPC server listen address to join to the cluster",
 				},
@@ -107,11 +107,11 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Value: ":9000",
 					Usage: "gRPC address to connect to",
 				},
 			},
-			ArgsUsage: "[id] [addr]",
+			ArgsUsage: "[id] [target-grpc-addr]",
 			Action:    execJoin,
 		},
 		{
@@ -120,7 +120,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Value: ":9000",
 					Usage: "address to connect to",
 				},
 			},
@@ -133,7 +133,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Value: ":9000",
 					Usage: "gRPC address to connect to",
 				},
 			},
@@ -145,7 +145,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Value: ":9000",
 					Usage: "gRPC address to connect to",
 				},
 			},
@@ -157,7 +157,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Value: ":9000",
 					Usage: "address to connect to",
 				},
 			},
@@ -169,7 +169,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Value: ":9000",
 					Usage: "gRPC address to connect to",
 				},
 				cli.StringFlag{
@@ -186,7 +186,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Value: ":9000",
 					Usage: "gRPC address to connect to",
 				},
 				cli.StringFlag{
@@ -204,7 +204,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Value: ":9000",
 					Usage: "gRPC address to connect to",
 				},
 				cli.StringFlag{
@@ -221,7 +221,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "grpc-addr, g",
-					Value: ":5050",
+					Value: ":9000",
 					Usage: "The gRPC address of the node for which to retrieve the node information",
 				},
 			},
@@ -240,6 +240,6 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 	}
 }

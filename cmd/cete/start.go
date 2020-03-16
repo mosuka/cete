@@ -25,12 +25,12 @@ import (
 )
 
 func execStart(c *cli.Context) error {
-	nodeId := c.String("node-id")
+	nodeId := c.String("id")
 	bindAddr := c.String("bind-addr")
 	grpcAddr := c.String("grpc-addr")
 	httpAddr := c.String("http-addr")
 	dataDir := c.String("data-dir")
-	joinAddr := c.String("join-addr")
+	joinAddr := c.String("peer-grpc-addr")
 
 	logger := cetelog.NewLogger(
 		c.String("log-level"),

@@ -52,7 +52,7 @@ func execSet(c *cli.Context) error {
 	defer func() {
 		err := client.Close()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
 	}()
 

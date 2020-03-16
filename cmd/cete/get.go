@@ -44,7 +44,7 @@ func execGet(c *cli.Context) error {
 	defer func() {
 		err := client.Close()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
 	}()
 
@@ -58,7 +58,7 @@ func execGet(c *cli.Context) error {
 		return nil
 	}
 
-	fmt.Fprintln(os.Stdout, fmt.Sprintf("%v", string(resp.Value)))
+	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%v", string(resp.Value)))
 
 	return nil
 }
