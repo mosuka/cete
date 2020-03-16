@@ -98,30 +98,6 @@ func main() {
 					Name:  "log-compress",
 					Usage: "Compress a log file",
 				},
-				cli.StringFlag{
-					Name:  "http-access-log-file",
-					Value: os.Stderr.Name(),
-					Usage: "HTTP access log file",
-				},
-				cli.IntFlag{
-					Name:  "http-access-log-max-size",
-					Value: 500,
-					Usage: "Max size of a HTTP access log file (megabytes)",
-				},
-				cli.IntFlag{
-					Name:  "http-access-log-max-backups",
-					Value: 3,
-					Usage: "Max backup count of HTTP access log files",
-				},
-				cli.IntFlag{
-					Name:  "http-access-log-max-age",
-					Value: 30,
-					Usage: "Max age of a HTTP access log file (days)",
-				},
-				cli.BoolFlag{
-					Name:  "http-access-log-compress",
-					Usage: "Compress a HTTP access log",
-				},
 			},
 			Action: execStart,
 		},

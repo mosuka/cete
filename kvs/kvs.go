@@ -15,11 +15,11 @@
 package kvs
 
 import (
-	"log"
+	"go.uber.org/zap"
 	"time"
 
 	"github.com/dgraph-io/badger"
-	"github.com/mosuka/cete/errors"
+	ceteerrors "github.com/mosuka/cete/errors"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 )
 
@@ -27,10 +27,10 @@ type KVS struct {
 	dir      string
 	valueDir string
 	db       *badger.DB
-	logger   *log.Logger
+	logger   *zap.Logger
 }
 
-func NewKVS(dir string, valueDir string, logger *log.Logger) (*KVS, error) {
+func NewKVS(dir string, valueDir string, logger *zap.Logger) (*KVS, error) {
 	opts := badger.DefaultOptions
 	opts.Dir = dir
 	opts.ValueDir = valueDir
@@ -38,6 +38,7 @@ func NewKVS(dir string, valueDir string, logger *log.Logger) (*KVS, error) {
 
 	db, err := badger.Open(opts)
 	if err != nil {
+		logger.Error("failed to open database", zap.Any("opts", opts), zap.String("err", err.Error()))
 		return nil, err
 	}
 
@@ -52,6 +53,7 @@ func NewKVS(dir string, valueDir string, logger *log.Logger) (*KVS, error) {
 func (b *KVS) Close() error {
 	err := b.db.Close()
 	if err != nil {
+		b.logger.Error("failed to close database", zap.String("err", err.Error()))
 		return err
 	}
 
@@ -60,71 +62,72 @@ func (b *KVS) Close() error {
 
 func (b *KVS) Get(key []byte) ([]byte, error) {
 	start := time.Now()
-	defer func() {
-		b.logger.Printf("[DEBUG] get %v %f", key, float64(time.Since(start))/float64(time.Second))
-	}()
 
 	var value []byte
 	err := b.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
+			b.logger.Error("failed to get item", zap.Binary("key", key), zap.String("err", err.Error()))
 			return err
 		}
 		v, err := item.Value()
 		if err != nil {
+			b.logger.Error("failed to get value", zap.Binary("key", key), zap.String("err", err.Error()))
 			return err
 		}
 		value = append([]byte{}, v...)
 		return nil
 	})
 	if err == badger.ErrKeyNotFound {
-		b.logger.Printf("[DEBUG] %v", err)
-		return nil, errors.ErrNotFound
+		b.logger.Debug("not found", zap.Binary("key", key), zap.String("err", err.Error()))
+		return nil, ceteerrors.ErrNotFound
 	}
 	if err != nil {
+		b.logger.Error("failed to get value", zap.Binary("key", key), zap.String("err", err.Error()))
 		return nil, err
 	}
 
+	b.logger.Debug("get", zap.Binary("key", key), zap.Binary("value", value), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return value, nil
 }
 
 func (b *KVS) Set(key []byte, value []byte) error {
 	start := time.Now()
-	defer func() {
-		b.logger.Printf("[DEBUG] set %v %v %f", key, value, float64(time.Since(start))/float64(time.Second))
-	}()
 
 	err := b.db.Update(func(txn *badger.Txn) error {
 		err := txn.Set(key, value)
 		if err != nil {
+			b.logger.Error("failed to set item", zap.Binary("key", key), zap.Binary("value", value), zap.String("err", err.Error()))
 			return err
 		}
 		return nil
 	})
 	if err != nil {
+		b.logger.Error("failed to set value", zap.Binary("key", key), zap.Binary("value", value), zap.String("err", err.Error()))
 		return err
 	}
 
+	b.logger.Debug("set", zap.Binary("key", key), zap.Binary("value", value), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return nil
 }
 
 func (b *KVS) Delete(key []byte) error {
 	start := time.Now()
-	defer func() {
-		b.logger.Printf("[DEBUG] delete %v %f", key, float64(time.Since(start))/float64(time.Second))
-	}()
 
 	err := b.db.Update(func(txn *badger.Txn) error {
 		err := txn.Delete(key)
 		if err != nil {
+			b.logger.Error("failed to delete item", zap.Binary("key", key), zap.String("err", err.Error()))
 			return err
 		}
 		return nil
 	})
 	if err != nil {
+		b.logger.Error("failed to delete value", zap.Binary("key", key), zap.String("err", err.Error()))
 		return err
 	}
 
+	b.logger.Debug("delete", zap.Binary("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return nil
 }
 
@@ -132,20 +135,25 @@ func (b *KVS) SnapshotItems() <-chan *pbkvs.KeyValuePair {
 	ch := make(chan *pbkvs.KeyValuePair, 1024)
 
 	go func() {
+		start := time.Now()
+
+		b.logger.Info("start to snapshot items")
+
+		keyCount := uint64(0)
+
 		err := b.db.View(func(txn *badger.Txn) error {
 			opts := badger.DefaultIteratorOptions
 			opts.PrefetchSize = 10
 			it := txn.NewIterator(opts)
 			defer it.Close()
 
-			keyCount := 0
 			for it.Rewind(); it.Valid(); it.Next() {
 				item := it.Item()
 				k := item.Key()
 				v, err := item.Value()
 				if err != nil {
-					b.logger.Printf("[WARN] %v", err)
-					continue
+					b.logger.Error("failed to get item", zap.Binary("key", k), zap.String("err", err.Error()))
+					return err
 				}
 
 				kvp := &pbkvs.KeyValuePair{
@@ -155,22 +163,17 @@ func (b *KVS) SnapshotItems() <-chan *pbkvs.KeyValuePair {
 
 				ch <- kvp
 				keyCount = keyCount + 1
-
-				if err != nil {
-					return err
-				}
 			}
-
-			b.logger.Print("[DEBUG] finished to write all key-value pairs to channel")
 			ch <- nil
-
-			b.logger.Printf("[INFO] snapshot total %d key-values pair", keyCount)
-
 			return nil
 		})
+
 		if err != nil {
-			b.logger.Printf("[WARN] %v", err)
+			b.logger.Error("failed to snapshot items", zap.String("err", err.Error()))
+			return
 		}
+
+		b.logger.Info("finished to snapshot items", zap.Uint64("count", keyCount), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	}()
 
 	return ch

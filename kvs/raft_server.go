@@ -15,7 +15,7 @@
 package kvs
 
 import (
-	"log"
+	"io/ioutil"
 	"net"
 	"path/filepath"
 	"sync"
@@ -25,9 +25,10 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/raft"
 	raftboltdb "github.com/hashicorp/raft-boltdb"
-	"github.com/mosuka/cete/errors"
+	ceteerrors "github.com/mosuka/cete/errors"
 	"github.com/mosuka/cete/protobuf"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"go.uber.org/zap"
 )
 
 type RaftServer struct {
@@ -37,7 +38,7 @@ type RaftServer struct {
 	httpAddr  string
 	dataDir   string
 	bootstrap bool
-	logger    *log.Logger
+	logger    *zap.Logger
 
 	fsm *RaftFSM
 
@@ -56,9 +57,11 @@ type RaftServer struct {
 	peerClients map[string]*GRPCClient
 }
 
-func NewRaftServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string, dataDir string, bootstrap bool, logger *log.Logger) (*RaftServer, error) {
-	fsm, err := NewRaftFSM(filepath.Join(dataDir, "kvs"), logger)
+func NewRaftServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string, dataDir string, bootstrap bool, logger *zap.Logger) (*RaftServer, error) {
+	fsmPath := filepath.Join(dataDir, "kvs")
+	fsm, err := NewRaftFSM(fsmPath, logger)
 	if err != nil {
+		logger.Error("failed to create FSM", zap.String("path", fsmPath), zap.String("err", err.Error()))
 		return nil, err
 	}
 
@@ -80,35 +83,41 @@ func (s *RaftServer) Start() error {
 	config := raft.DefaultConfig()
 	config.LocalID = raft.ServerID(s.nodeId)
 	config.SnapshotThreshold = 1024
-	config.Logger = s.logger
+	config.LogOutput = ioutil.Discard
 
 	addr, err := net.ResolveTCPAddr("tcp", s.bindAddr)
 	if err != nil {
+		s.logger.Error("failed to resolve TCP address", zap.String("tcp", s.bindAddr), zap.String("err", err.Error()))
 		return err
 	}
 
 	//s.transport = raftgrpc.NewTransport(context.Background(), string(config.LocalID))
 	//s.transport = raftgrpc.NewTransport(context.TODO(), s.nodeId)
-	s.transport, err = raft.NewTCPTransportWithLogger(s.bindAddr, addr, 3, 10*time.Second, s.logger)
+	s.transport, err = raft.NewTCPTransport(s.bindAddr, addr, 3, 10*time.Second, ioutil.Discard)
 	if err != nil {
+		s.logger.Error("failed to create TCP transport", zap.String("tcp", s.bindAddr), zap.String("err", err.Error()))
 		return err
 	}
 
 	// create snapshot store
-	snapshotStore, err := raft.NewFileSnapshotStoreWithLogger(s.dataDir, 2, s.logger)
+	snapshotStore, err := raft.NewFileSnapshotStore(s.dataDir, 2, ioutil.Discard)
 	if err != nil {
+		s.logger.Error("failed to create file snapshot store", zap.String("path", s.dataDir), zap.String("err", err.Error()))
 		return err
 	}
 
 	// create raft log store
-	raftLogStore, err := raftboltdb.NewBoltStore(filepath.Join(s.dataDir, "raft.db"))
+	raftLogStorePath := filepath.Join(s.dataDir, "raft.db")
+	raftLogStore, err := raftboltdb.NewBoltStore(raftLogStorePath)
 	if err != nil {
+		s.logger.Error("failed to create raft log store", zap.String("path", raftLogStorePath), zap.String("err", err.Error()))
 		return err
 	}
 
 	// create raft
 	s.raft, err = raft.NewRaft(config, s.fsm, raftLogStore, raftLogStore, snapshotStore, s.transport)
 	if err != nil {
+		s.logger.Error("failed to create raft", zap.Any("config", config), zap.String("err", err.Error()))
 		return err
 	}
 
@@ -124,27 +133,27 @@ func (s *RaftServer) Start() error {
 		s.raft.BootstrapCluster(configuration)
 
 		// wait for detect a leader
-		err = s.WaitForDetectLeader(60 * time.Second)
+		timeout := 60 * time.Second
+		err = s.WaitForDetectLeader(timeout)
 		if err != nil {
-			if err == errors.ErrTimeout {
-				s.logger.Printf("[WARN] %v", err)
+			if err == ceteerrors.ErrTimeout {
+				s.logger.Error("leader detection timed out", zap.Duration("timeout", timeout), zap.String("err", err.Error()))
 			} else {
-				s.logger.Printf("[ERR] %v", err)
-				return nil
+				s.logger.Error("failed to detect leader", zap.String("err", err.Error()))
 			}
+			return err
 		}
 
-		err = s.join(
-			&pbkvs.JoinRequest{
-				Id:       s.nodeId,
-				BindAddr: s.bindAddr,
-				GrpcAddr: s.grpcAddr,
-				HttpAddr: s.httpAddr,
-			},
-		)
+		req := &pbkvs.JoinRequest{
+			Id:       s.nodeId,
+			BindAddr: s.bindAddr,
+			GrpcAddr: s.grpcAddr,
+			HttpAddr: s.httpAddr,
+		}
+		err = s.join(req)
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
-			return nil
+			s.logger.Error("failed to join node to the cluster", zap.Any("req", req), zap.String("err", err.Error()))
+			return err
 		}
 	}
 
@@ -156,6 +165,7 @@ func (s *RaftServer) Start() error {
 	//	s.startUpdateCluster(500 * time.Millisecond)
 	//}()
 
+	s.logger.Info("Raft server started")
 	return nil
 }
 
@@ -166,6 +176,7 @@ func (s *RaftServer) Stop() error {
 
 	err := s.fsm.Close()
 	if err != nil {
+		s.logger.Error("failed to close FSM", zap.String("err", err.Error()))
 		return err
 	}
 
@@ -173,7 +184,7 @@ func (s *RaftServer) Stop() error {
 }
 
 func (s *RaftServer) startUpdateNode(checkInterval time.Duration) {
-	s.logger.Printf("[INFO] start to update node info")
+	s.logger.Info("start to update node info")
 
 	s.updateNodeStopCh = make(chan struct{})
 	s.updateNodeDoneCh = make(chan struct{})
@@ -185,15 +196,23 @@ func (s *RaftServer) startUpdateNode(checkInterval time.Duration) {
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
-	s.WaitForDetectLeader(60 * time.Second)
+	timeout := 60 * time.Second
+	err := s.WaitForDetectLeader(timeout)
+	if err != nil {
+		if err == ceteerrors.ErrTimeout {
+			s.logger.Error("leader detection timed out", zap.Duration("timeout", timeout), zap.String("err", err.Error()))
+		} else {
+			s.logger.Error("failed to detect leader", zap.String("err", err.Error()))
+		}
+	}
 
 	for {
 		select {
 		case <-s.updateNodeStopCh:
-			s.logger.Printf("[INFO] received a request to stop updating the node info")
+			s.logger.Info("received a request to stop updating the node info")
 			return
 		case <-ticker.C:
-			s.logger.Printf("[DEBUG] tick")
+			s.logger.Debug("tick")
 
 			//// get nodes
 			//nodes, err := s.fsm.Nodes()
@@ -210,20 +229,20 @@ func (s *RaftServer) startUpdateNode(checkInterval time.Duration) {
 }
 
 func (s *RaftServer) stopUpdateNode() {
-	s.logger.Printf("[INFO] stop updating the node info")
+	s.logger.Info("stop updating the node info")
 
 	if s.updateNodeStopCh != nil {
-		s.logger.Printf("[INFO] send a request to stop updating the node info")
+		s.logger.Debug("send a request to stop updating the node info")
 		close(s.updateNodeStopCh)
 	}
 
-	s.logger.Printf("[INFO] wait for the updating node info to stopped")
+	s.logger.Info("wait for the updating node info to stopped")
 	<-s.updateNodeDoneCh
-	s.logger.Printf("[INFO] the updating node info has stopped")
+	s.logger.Info("the updating node info has stopped")
 }
 
 func (s *RaftServer) startUpdateCluster(checkInterval time.Duration) {
-	s.logger.Printf("[INFO] start to update cluster info")
+	s.logger.Info("start to update cluster info")
 
 	s.updateClusterStopCh = make(chan struct{})
 	s.updateClusterDoneCh = make(chan struct{})
@@ -240,10 +259,10 @@ func (s *RaftServer) startUpdateCluster(checkInterval time.Duration) {
 	for {
 		select {
 		case <-s.updateClusterStopCh:
-			s.logger.Printf("[INFO] received a request to stop updating a cluster")
+			s.logger.Info("received a request to stop updating a cluster")
 			return
 		case <-ticker.C:
-			s.logger.Printf("[DEBUG] tick")
+			s.logger.Debug("tick")
 
 			//s.updateClusterMutex.Lock()
 			//
@@ -335,48 +354,26 @@ func (s *RaftServer) startUpdateCluster(checkInterval time.Duration) {
 }
 
 func (s *RaftServer) stopUpdateCluster() {
-	s.logger.Printf("[INFO] stop to update cluster info")
+	s.logger.Info("stop to update cluster info")
 
 	s.updateClusterMutex.Lock()
 	for id, client := range s.peerClients {
-		s.logger.Printf("[INFO] close peer client %s %s", id, client.conn.Target())
+		s.logger.Info("close peer client", zap.String("id", id), zap.String("addr", client.conn.Target()))
 		err := client.Close()
 		if err != nil {
-			s.logger.Printf("[ERR] %v", err)
+			s.logger.Info("failed to close peer client", zap.String("id", id), zap.String("addr", client.conn.Target()), zap.String("err", err.Error()))
 		}
 	}
 	s.updateClusterMutex.Unlock()
 
 	if s.updateClusterStopCh != nil {
-		s.logger.Printf("[INFO] send a request to stop updating a cluster")
+		s.logger.Info("send a request to stop updating a cluster")
 		close(s.updateClusterStopCh)
 	}
 
-	s.logger.Printf("[INFO] wait for the cluster update to stop")
+	s.logger.Info("wait for the cluster update to stop")
 	<-s.updateClusterDoneCh
-	s.logger.Printf("[INFO] the cluster update has been stopped")
-}
-
-func (s *RaftServer) WaitForDetectLeader(timeout time.Duration) error {
-	ticker := time.NewTicker(1000 * time.Millisecond)
-	defer ticker.Stop()
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			leaderAddr := s.raft.Leader()
-			if leaderAddr != "" {
-				s.logger.Printf("[INFO] detected %v as a leader", leaderAddr)
-				return nil
-			} else {
-				s.logger.Printf("[WARN] %v", errors.ErrNotFoundLeader)
-			}
-		case <-timer.C:
-			return errors.ErrTimeout
-		}
-	}
+	s.logger.Info("the cluster update has been stopped")
 }
 
 func (s *RaftServer) LeaderAddress(timeout time.Duration) (raft.ServerAddress, error) {
@@ -390,10 +387,13 @@ func (s *RaftServer) LeaderAddress(timeout time.Duration) (raft.ServerAddress, e
 		case <-ticker.C:
 			leaderAddr := s.raft.Leader()
 			if leaderAddr != "" {
+				s.logger.Info("detected a leader address", zap.String("addr", string(leaderAddr)))
 				return leaderAddr, nil
 			}
 		case <-timer.C:
-			return "", errors.ErrTimeout
+			err := ceteerrors.ErrTimeout
+			s.logger.Error("failed to detect leader address", zap.String("err", err.Error()))
+			return "", err
 		}
 	}
 }
@@ -402,21 +402,35 @@ func (s *RaftServer) LeaderID(timeout time.Duration) (raft.ServerID, error) {
 	cf := s.raft.GetConfiguration()
 	err := cf.Error()
 	if err != nil {
+		s.logger.Error("failed to get Raft configuration", zap.String("err", err.Error()))
 		return "", err
 	}
 
 	leaderAddr, err := s.LeaderAddress(timeout)
 	if err != nil {
+		s.logger.Error("failed to get leader address", zap.String("err", err.Error()))
 		return "", err
 	}
 
 	for _, server := range cf.Configuration().Servers {
 		if server.Address == leaderAddr {
+			s.logger.Info("detected a leader ID", zap.String("id", string(server.ID)))
 			return server.ID, nil
 		}
 	}
 
-	return "", errors.ErrNotFoundLeader
+	err = ceteerrors.ErrNotFoundLeader
+	s.logger.Error("failed to detect leader ID", zap.String("err", err.Error()))
+	return "", err
+}
+
+func (s *RaftServer) WaitForDetectLeader(timeout time.Duration) error {
+	if _, err := s.LeaderAddress(timeout); err != nil {
+		s.logger.Error("failed to wait for detect leader", zap.String("err", err.Error()))
+		return err
+	}
+
+	return nil
 }
 
 func (s *RaftServer) State() string {
@@ -424,10 +438,10 @@ func (s *RaftServer) State() string {
 }
 
 func (s *RaftServer) join(req *pbkvs.JoinRequest) error {
-	// Node -> Any
 	nodeAny := &any.Any{}
 	err := protobuf.UnmarshalAny(req, nodeAny)
 	if err != nil {
+		s.logger.Error("failed to unmarshal request to the command data", zap.Any("req", req), zap.String("err", err.Error()))
 		return err
 	}
 
@@ -438,12 +452,13 @@ func (s *RaftServer) join(req *pbkvs.JoinRequest) error {
 
 	msg, err := proto.Marshal(c)
 	if err != nil {
+		s.logger.Error("failed to marshal the command into the bytes as message", zap.String("err", err.Error()))
 		return err
 	}
 
 	f := s.raft.Apply(msg, 10*time.Second)
-	err = f.Error()
-	if err != nil {
+	if err = f.Error(); err != nil {
+		s.logger.Error("failed to apply message", zap.String("err", err.Error()))
 		return err
 	}
 
@@ -454,12 +469,13 @@ func (s *RaftServer) Join(req *pbkvs.JoinRequest) error {
 	cf := s.raft.GetConfiguration()
 	err := cf.Error()
 	if err != nil {
+		s.logger.Error("failed to get Raft configuration", zap.String("err", err.Error()))
 		return err
 	}
 
 	for _, server := range cf.Configuration().Servers {
 		if server.ID == raft.ServerID(req.Id) {
-			s.logger.Printf("[INFO] node %s already joined the cluster", req.Id)
+			s.logger.Info("node already joined the cluster", zap.String("id", req.Id))
 			return nil
 		}
 	}
@@ -467,24 +483,25 @@ func (s *RaftServer) Join(req *pbkvs.JoinRequest) error {
 	f := s.raft.AddVoter(raft.ServerID(req.Id), raft.ServerAddress(req.BindAddr), 0, 0)
 	err = f.Error()
 	if err != nil {
+		s.logger.Error("failed to add voter", zap.String("id", req.Id), zap.String("addr", req.BindAddr), zap.Error(err))
 		return err
 	}
 
 	err = s.join(req)
 	if err != nil {
-		s.logger.Printf("[ERR] %v", err)
+		s.logger.Error("failed to join node", zap.Any("req", req), zap.Error(err))
 		return nil
 	}
 
-	s.logger.Printf("[INFO] node %s at %s joined successfully", req.Id, req.GrpcAddr)
+	s.logger.Info("the node has successfully joined the cluster", zap.Any("req", req))
 	return nil
 }
 
 func (s *RaftServer) leave(req *pbkvs.LeaveRequest) error {
-	// Node -> Any
 	nodeAny := &any.Any{}
 	err := protobuf.UnmarshalAny(req, nodeAny)
 	if err != nil {
+		s.logger.Error("failed to unmarshal request to the command data", zap.Any("req", req), zap.String("err", err.Error()))
 		return err
 	}
 
@@ -495,12 +512,13 @@ func (s *RaftServer) leave(req *pbkvs.LeaveRequest) error {
 
 	msg, err := proto.Marshal(c)
 	if err != nil {
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("err", err.Error()))
 		return err
 	}
 
 	f := s.raft.Apply(msg, 10*time.Second)
-	err = f.Error()
-	if err != nil {
+	if err = f.Error(); err != nil {
+		s.logger.Error("failed to apply the message", zap.String("err", err.Error()))
 		return err
 	}
 
@@ -511,36 +529,37 @@ func (s *RaftServer) Leave(req *pbkvs.LeaveRequest) error {
 	cf := s.raft.GetConfiguration()
 	err := cf.Error()
 	if err != nil {
+		s.logger.Error("failed to get Raft configuration", zap.Error(err))
 		return err
 	}
 
 	for _, server := range cf.Configuration().Servers {
 		if server.ID == raft.ServerID(req.Id) {
 			f := s.raft.RemoveServer(server.ID, 0, 0)
-			err = f.Error()
-			if err != nil {
+			if err = f.Error(); err != nil {
+				s.logger.Error("failed to remove server", zap.String("id", req.Id), zap.Error(err))
 				return err
+			} else {
+				s.logger.Info("the server has successfully removed", zap.String("id", req.Id))
+				break
 			}
-
-			s.logger.Printf("[INFO] node %s leaved successfully", req.Id)
-			return nil
 		}
 	}
 
 	// delete metadata
-	err = s.leave(req)
-	if err != nil {
-		s.logger.Printf("[ERR] %v", err)
-		return nil
+	if err = s.leave(req); err != nil {
+		s.logger.Error("failed to join node", zap.Any("req", req), zap.Error(err))
+		return err
 	}
 
-	s.logger.Printf("[INFO] node %s does not exists in the cluster", req.Id)
+	s.logger.Info("the node has successfully leaved from the cluster", zap.Any("req", req))
 	return nil
 }
 
 func (s *RaftServer) Node() (*pbkvs.NodeResponse, error) {
 	cf := s.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
+		s.logger.Error("failed to get Raft configuration", zap.Error(err))
 		return nil, err
 	}
 
@@ -565,6 +584,7 @@ func (s *RaftServer) Node() (*pbkvs.NodeResponse, error) {
 func (s *RaftServer) Cluster() (*pbkvs.ClusterResponse, error) {
 	cf := s.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
+		s.logger.Error("failed to get Raft configuration", zap.Error(err))
 		return nil, err
 	}
 
@@ -572,7 +592,7 @@ func (s *RaftServer) Cluster() (*pbkvs.ClusterResponse, error) {
 	for _, server := range cf.Configuration().Servers {
 		if server.ID == raft.ServerID(s.nodeId) {
 			if resp, err := s.Node(); err != nil {
-				s.logger.Printf("[ERR] %v", err)
+				s.logger.Error("failed to get node info", zap.Error(err))
 				nodes[string(server.ID)] = resp.Node
 			} else {
 				nodes[string(server.ID)] = resp.Node
@@ -583,21 +603,21 @@ func (s *RaftServer) Cluster() (*pbkvs.ClusterResponse, error) {
 			if metadata := s.fsm.getMetadata(string(server.ID)); metadata != nil {
 				grpcAddr := metadata.GrpcAddr
 				if client, err := NewGRPCClient(grpcAddr); err != nil {
-					s.logger.Printf("[ERR] %v", err)
+					s.logger.Error("failed to create client", zap.String("addr", grpcAddr), zap.Error(err))
 					node.State = raft.Shutdown.String()
 				} else {
 					if resp, err := client.Node(); err != nil {
-						s.logger.Printf("[ERR] %v", err)
+						s.logger.Error("failed to get node info", zap.String("addr", grpcAddr), zap.Error(err))
 						node.State = raft.Shutdown.String()
 					} else {
 						node = resp.Node
 					}
 					if err = client.Close(); err != nil {
-						s.logger.Printf("[ERR] %v", err)
+						s.logger.Error("failed to close client", zap.String("addr", grpcAddr), zap.Error(err))
 					}
 				}
 			} else {
-				s.logger.Printf("[ERR] metadata not found")
+				s.logger.Error("metadata not found", zap.String("id", string(server.ID)))
 				node.State = raft.Shutdown.String()
 			}
 
@@ -612,8 +632,8 @@ func (s *RaftServer) Cluster() (*pbkvs.ClusterResponse, error) {
 
 func (s *RaftServer) Snapshot() error {
 	f := s.raft.Snapshot()
-	err := f.Error()
-	if err != nil {
+	if err := f.Error(); err != nil {
+		s.logger.Error("failed to snapshot", zap.Error(err))
 		return err
 	}
 
@@ -623,6 +643,7 @@ func (s *RaftServer) Snapshot() error {
 func (s *RaftServer) Get(req *pbkvs.GetRequest) (*pbkvs.GetResponse, error) {
 	value, err := s.fsm.Get(req.Key)
 	if err != nil {
+		s.logger.Error("failed to get", zap.Any("req", req), zap.Error(err))
 		return nil, err
 	}
 
@@ -633,10 +654,10 @@ func (s *RaftServer) Get(req *pbkvs.GetRequest) (*pbkvs.GetResponse, error) {
 	return resp, nil
 }
 
-func (s *RaftServer) Set(kvp *pbkvs.PutRequest) error {
+func (s *RaftServer) Set(req *pbkvs.PutRequest) error {
 	kvpAny := &any.Any{}
-	err := protobuf.UnmarshalAny(kvp, kvpAny)
-	if err != nil {
+	if err := protobuf.UnmarshalAny(req, kvpAny); err != nil {
+		s.logger.Error("failed to unmarshal request to the command data", zap.Any("req", req), zap.String("err", err.Error()))
 		return err
 	}
 
@@ -647,23 +668,24 @@ func (s *RaftServer) Set(kvp *pbkvs.PutRequest) error {
 
 	msg, err := proto.Marshal(c)
 	if err != nil {
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("err", err.Error()))
 		return err
 	}
 
 	f := s.raft.Apply(msg, 10*time.Second)
-	err = f.Error()
-	if err != nil {
+	if err = f.Error(); err != nil {
+		s.logger.Error("failed to apply the message", zap.String("err", err.Error()))
 		return err
 	}
 
 	return nil
 }
 
-func (s *RaftServer) Delete(kvp *pbkvs.DeleteRequest) error {
-	// KeyValuePair -> Any
+func (s *RaftServer) Delete(req *pbkvs.DeleteRequest) error {
 	kvpAny := &any.Any{}
-	err := protobuf.UnmarshalAny(kvp, kvpAny)
+	err := protobuf.UnmarshalAny(req, kvpAny)
 	if err != nil {
+		s.logger.Error("failed to unmarshal request to the command data", zap.Any("req", req), zap.String("err", err.Error()))
 		return err
 	}
 
@@ -674,12 +696,14 @@ func (s *RaftServer) Delete(kvp *pbkvs.DeleteRequest) error {
 
 	msg, err := proto.Marshal(c)
 	if err != nil {
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("err", err.Error()))
 		return err
 	}
 
 	f := s.raft.Apply(msg, 10*time.Second)
 	err = f.Error()
 	if err != nil {
+		s.logger.Error("failed to unmarshal request to the command data", zap.Any("req", req), zap.String("err", err.Error()))
 		return err
 	}
 

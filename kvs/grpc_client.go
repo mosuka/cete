@@ -44,8 +44,8 @@ func NewGRPCClient(address string) (*GRPCClient, error) {
 	dialOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithDefaultCallOptions(
-			grpc.MaxCallSendMsgSize(math.MaxInt32),
-			grpc.MaxCallRecvMsgSize(math.MaxInt32),
+			grpc.MaxCallSendMsgSize(math.MaxInt64),
+			grpc.MaxCallRecvMsgSize(math.MaxInt64),
 		),
 	}
 
