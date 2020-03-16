@@ -10,10 +10,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Upgrade Raft #8 @mosuka
 - Refactoring #7 @mosuka
 
-## [v0.1.1] - 2019-11-05
+## [v0.1.1] 2019-11-05
 
 - Fix bugs in defer #5 @mosuka
 
-## [v0.1.0] - 2019-03-30
+## [v0.1.0] 2019-03-30
 
 - First release @mosuka
