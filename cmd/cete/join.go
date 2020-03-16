@@ -33,15 +33,33 @@ func execJoin(c *cli.Context) error {
 		return err
 	}
 
-	addr := c.Args().Get(1)
-	if addr == "" {
+	targetGrpcAddr := c.Args().Get(1)
+	if targetGrpcAddr == "" {
 		err := errors.New("address argument must be set")
+		return err
+	}
+
+	targetClient, err := kvs.NewGRPCClient(targetGrpcAddr)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := targetClient.Close()
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+		}
+	}()
+
+	nodeResp, err := targetClient.Node()
+	if err != nil {
 		return err
 	}
 
 	req := &pbkvs.JoinRequest{
 		Id:       id,
-		GrpcAddr: addr,
+		BindAddr: nodeResp.Node.BindAddr,
+		GrpcAddr: nodeResp.Node.GrpcAddr,
+		HttpAddr: nodeResp.Node.HttpAddr,
 	}
 
 	client, err := kvs.NewGRPCClient(grpcAddr)
@@ -51,7 +69,7 @@ func execJoin(c *cli.Context) error {
 	defer func() {
 		err := client.Close()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
 	}()
 
