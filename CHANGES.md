@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Upgrade Badger #9 @mosuka
 - Upgrade Raft #8 @mosuka
 - Refactoring #7 @mosuka
 
