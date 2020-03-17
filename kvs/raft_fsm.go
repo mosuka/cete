@@ -40,13 +40,13 @@ type RaftFSM struct {
 func NewRaftFSM(path string, logger *zap.Logger) (*RaftFSM, error) {
 	err := os.MkdirAll(path, 0755)
 	if err != nil && !os.IsExist(err) {
-		logger.Error("failed to make directories", zap.String("path", path), zap.String("err", err.Error()))
+		logger.Error("failed to make directories", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
 
 	kvs, err := NewKVS(path, path, logger)
 	if err != nil {
-		logger.Error("failed to create key value store", zap.String("path", path), zap.String("err", err.Error()))
+		logger.Error("failed to create key value store", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
 
@@ -60,7 +60,7 @@ func NewRaftFSM(path string, logger *zap.Logger) (*RaftFSM, error) {
 func (f *RaftFSM) Close() error {
 	err := f.kvs.Close()
 	if err != nil {
-		f.logger.Error("failed to close key value store", zap.String("err", err.Error()))
+		f.logger.Error("failed to close key value store", zap.Error(err))
 		return err
 	}
 
@@ -70,7 +70,7 @@ func (f *RaftFSM) Close() error {
 func (f *RaftFSM) Get(key []byte) ([]byte, error) {
 	value, err := f.kvs.Get(key)
 	if err != nil {
-		f.logger.Error("failed to get value", zap.Binary("key", key), zap.String("err", err.Error()))
+		f.logger.Error("failed to get value", zap.Binary("key", key), zap.Error(err))
 		return nil, err
 	}
 
@@ -80,7 +80,7 @@ func (f *RaftFSM) Get(key []byte) ([]byte, error) {
 func (f *RaftFSM) applySet(key []byte, value []byte) interface{} {
 	err := f.kvs.Set(key, value)
 	if err != nil {
-		f.logger.Error("failed to set value", zap.Binary("key", key), zap.Binary("value", value), zap.String("err", err.Error()))
+		f.logger.Error("failed to set value", zap.Binary("key", key), zap.Error(err))
 		return err
 	}
 
@@ -90,7 +90,7 @@ func (f *RaftFSM) applySet(key []byte, value []byte) interface{} {
 func (f *RaftFSM) applyDelete(key []byte) interface{} {
 	err := f.kvs.Delete(key)
 	if err != nil {
-		f.logger.Error("failed to delete value", zap.Binary("key", key), zap.String("err", err.Error()))
+		f.logger.Error("failed to delete value", zap.Binary("key", key), zap.Error(err))
 		return err
 	}
 
@@ -138,7 +138,7 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 	var c pbkvs.KVSCommand
 	err := proto.Unmarshal(l.Data, &c)
 	if err != nil {
-		f.logger.Error("failed to unmarshal key value store command", zap.Binary("data", l.Data), zap.String("err", err.Error()))
+		f.logger.Error("failed to unmarshal message bytes to KVS command", zap.Error(err))
 		return err
 	}
 
@@ -146,12 +146,12 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 	case pbkvs.KVSCommand_JOIN:
 		joinRequestInstance, err := protobuf.MarshalAny(c.Data)
 		if err != nil {
-			f.logger.Error("failed to marshal to request from any", zap.String("type", c.Type.String()), zap.Binary("data", l.Data), zap.String("err", err.Error()))
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
 		if joinRequestInstance == nil {
 			err = errors.New("nil")
-			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Binary("data", l.Data), zap.String("err", err.Error()))
+			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
 		joinRequest := joinRequestInstance.(*pbkvs.JoinRequest)
@@ -160,12 +160,12 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 	case pbkvs.KVSCommand_LEAVE:
 		leaveRequestInstance, err := protobuf.MarshalAny(c.Data)
 		if err != nil {
-			f.logger.Error("failed to marshal to request from any", zap.String("type", c.Type.String()), zap.Binary("data", l.Data), zap.String("err", err.Error()))
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
 		if leaveRequestInstance == nil {
 			err = errors.New("nil")
-			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Binary("data", l.Data), zap.String("err", err.Error()))
+			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
 		leaveRequest := *leaveRequestInstance.(*pbkvs.LeaveRequest)
@@ -174,12 +174,12 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 	case pbkvs.KVSCommand_PUT:
 		putRequestInstance, err := protobuf.MarshalAny(c.Data)
 		if err != nil {
-			f.logger.Error("failed to marshal to request from any", zap.String("type", c.Type.String()), zap.Binary("data", l.Data), zap.String("err", err.Error()))
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
 		if putRequestInstance == nil {
 			err = errors.New("nil")
-			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Binary("data", l.Data), zap.String("err", err.Error()))
+			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
 		putRequest := *putRequestInstance.(*pbkvs.PutRequest)
@@ -188,12 +188,12 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 	case pbkvs.KVSCommand_DELETE:
 		deleteRequestInstance, err := protobuf.MarshalAny(c.Data)
 		if err != nil {
-			f.logger.Error("failed to marshal to request from any", zap.String("type", c.Type.String()), zap.Binary("data", l.Data), zap.String("err", err.Error()))
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
 		if deleteRequestInstance == nil {
 			err = errors.New("nil")
-			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Binary("data", l.Data), zap.String("err", err.Error()))
+			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
 		deleteRequest := *deleteRequestInstance.(*pbkvs.DeleteRequest)
@@ -201,7 +201,7 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 		return f.applyDelete(deleteRequest.Key)
 	default:
 		err = errors.New("command type not support")
-		f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Binary("data", l.Data), zap.String("err", err.Error()))
+		f.logger.Error("unsupported command", zap.String("type", c.Type.String()), zap.Error(err))
 		return err
 	}
 }
@@ -221,13 +221,13 @@ func (f *RaftFSM) Restore(rc io.ReadCloser) error {
 	defer func() {
 		err := rc.Close()
 		if err != nil {
-			f.logger.Error("failed to close reader", zap.String("err", err.Error()))
+			f.logger.Error("failed to close reader", zap.Error(err))
 		}
 	}()
 
 	data, err := ioutil.ReadAll(rc)
 	if err != nil {
-		f.logger.Error("failed to open reader", zap.String("err", err.Error()))
+		f.logger.Error("failed to open reader", zap.Error(err))
 		return err
 	}
 
@@ -238,22 +238,22 @@ func (f *RaftFSM) Restore(rc io.ReadCloser) error {
 		kvp := &pbkvs.KeyValuePair{}
 		err = buff.DecodeMessage(kvp)
 		if err == io.ErrUnexpectedEOF {
-			f.logger.Debug("reached the EOF", zap.String("err", err.Error()))
+			f.logger.Debug("reached the EOF", zap.Error(err))
 			break
 		}
 		if err != nil {
-			f.logger.Error("failed to read key value pair", zap.String("err", err.Error()))
+			f.logger.Error("failed to read key value pair", zap.Error(err))
 			return err
 		}
 
 		// apply item to store
 		err = f.kvs.Set(kvp.Key, kvp.Value)
 		if err != nil {
-			f.logger.Error("failed to set key value pair to key value store", zap.String("err", err.Error()))
+			f.logger.Error("failed to set key value pair to key value store", zap.Error(err))
 			return err
 		}
 
-		f.logger.Debug("restore", zap.Binary("key", kvp.Key), zap.Binary("value", kvp.Value))
+		f.logger.Debug("restore", zap.Binary("key", kvp.Key))
 		keyCount = keyCount + 1
 	}
 
@@ -277,7 +277,7 @@ func (f *KVSFSMSnapshot) Persist(sink raft.SnapshotSink) error {
 	defer func() {
 		err := sink.Close()
 		if err != nil {
-			f.logger.Error("failed to close sink", zap.String("err", err.Error()))
+			f.logger.Error("failed to close sink", zap.Error(err))
 		}
 	}()
 
@@ -297,13 +297,13 @@ func (f *KVSFSMSnapshot) Persist(sink raft.SnapshotSink) error {
 		buff := proto.NewBuffer([]byte{})
 		err := buff.EncodeMessage(kvp)
 		if err != nil {
-			f.logger.Error("failed to encode key value pair", zap.String("err", err.Error()))
+			f.logger.Error("failed to encode key value pair", zap.Error(err))
 			return err
 		}
 
 		_, err = sink.Write(buff.Bytes())
 		if err != nil {
-			f.logger.Error("failed to write key value pair", zap.String("err", err.Error()))
+			f.logger.Error("failed to write key value pair", zap.Error(err))
 			return err
 		}
 	}

@@ -12,23 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-GOOS ?= linux
-GOARCH ?= amd64
+GOOS ?=
+GOARCH ?=
+GO111MODULE ?= on
 CGO_ENABLED ?= 0
 CGO_CFLAGS ?=
 CGO_LDFLAGS ?=
 BUILD_TAGS ?=
-DOCKER_REPOSITORY ?= mosuka
 VERSION ?=
 BIN_EXT ?=
-
-GO := GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) CGO_CFLAGS=$(CGO_CFLAGS) CGO_LDFLAGS=$(CGO_LDFLAGS) GO111MODULE=on go
+DOCKER_REPOSITORY ?= mosuka
 
 PACKAGES = $(shell $(GO) list ./... | grep -v '/vendor/')
 
 PROTOBUFS = $(shell find . -name '*.proto' -print0 | xargs -0 -n1 dirname | sort | uniq | grep -v /vendor/)
 
 TARGET_PACKAGES = $(shell find . -name 'main.go' -print0 | xargs -0 -n1 dirname | sort | uniq | grep -v /vendor/)
+
+ifeq ($(GOOS),)
+  GOOS = $(shell go version | awk -F ' ' '{print $$NF}' | awk -F '/' '{print $$1}')
+endif
+
+ifeq ($(GOARCH),)
+  GOARCH = $(shell go version | awk -F ' ' '{print $$NF}' | awk -F '/' '{print $$2}')
+endif
 
 ifeq ($(VERSION),)
   VERSION = latest
@@ -38,6 +45,8 @@ LDFLAGS = -ldflags "-X \"github.com/mosuka/cete/version.Version=$(VERSION)\""
 ifeq ($(GOOS),windows)
   BIN_EXT = .exe
 endif
+
+GO := GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) CGO_CFLAGS=$(CGO_CFLAGS) CGO_LDFLAGS=$(CGO_LDFLAGS) GO111MODULE=$(GO111MODULE) go
 
 .DEFAULT_GOAL := build
 

@@ -73,7 +73,7 @@ func (s *GRPCService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.
 
 		err = client.Join(req)
 		if err != nil {
-			s.logger.Error("failed to join node to the cluster", zap.Any("req", req), zap.Error(err))
+			s.logger.Error("failed to forward request", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -82,14 +82,14 @@ func (s *GRPCService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.
 
 	err := s.raftServer.Join(req)
 	if err != nil {
-		s.logger.Error("failed to join node to the cluster", zap.Any("req", req), zap.Error(err))
+		s.logger.Error("failed to join node to the cluster", zap.String("id", req.Id), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	// notify
 	joinReqAny := &any.Any{}
 	if err := protobuf.UnmarshalAny(req, joinReqAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
+		s.logger.Error("failed to unmarshal request to the watch data", zap.String("id", req.Id), zap.String("err", err.Error()))
 	} else {
 		watchResp := &pbkvs.WatchResponse{
 			Event: pbkvs.WatchResponse_JOIN,
@@ -129,7 +129,7 @@ func (s *GRPCService) Leave(ctx context.Context, req *pbkvs.LeaveRequest) (*empt
 
 		err = client.Leave(req)
 		if err != nil {
-			s.logger.Error("failed to leave node from the cluster", zap.Any("req", req), zap.Error(err))
+			s.logger.Error("failed to forward request", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -208,10 +208,10 @@ func (s *GRPCService) Get(ctx context.Context, req *pbkvs.GetRequest) (*pbkvs.Ge
 	if err != nil {
 		switch err {
 		case errors.ErrNotFound:
-			s.logger.Debug("key not found", zap.Any("req", req), zap.String("err", err.Error()))
+			s.logger.Debug("key not found", zap.Binary("key", req.Key), zap.String("err", err.Error()))
 			return resp, status.Error(codes.NotFound, err.Error())
 		default:
-			s.logger.Debug("failed to get data", zap.Any("req", req), zap.String("err", err.Error()))
+			s.logger.Debug("failed to get data", zap.Binary("key", req.Key), zap.String("err", err.Error()))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 	}
@@ -245,7 +245,7 @@ func (s *GRPCService) Put(ctx context.Context, req *pbkvs.PutRequest) (*empty.Em
 
 		err = client.Put(req)
 		if err != nil {
-			s.logger.Error("failed to put data", zap.Any("req", req), zap.Error(err))
+			s.logger.Error("failed to forward request", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -302,7 +302,7 @@ func (s *GRPCService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*em
 
 		err = client.Delete(req)
 		if err != nil {
-			s.logger.Error("failed to delete data", zap.Any("req", req), zap.Error(err))
+			s.logger.Error("failed to forward request", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -312,14 +312,14 @@ func (s *GRPCService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*em
 	// delete value by key
 	err := s.raftServer.Delete(req)
 	if err != nil {
-		s.logger.Error("failed to delete data", zap.Any("req", req), zap.Error(err))
+		s.logger.Error("failed to delete data", zap.Binary("key", req.Key), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	// notify
 	deleteReqAny := &any.Any{}
 	if err := protobuf.UnmarshalAny(req, deleteReqAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
+		s.logger.Error("failed to unmarshal request to the watch data", zap.Binary("key", req.Key), zap.Error(err))
 	} else {
 		watchResp := &pbkvs.WatchResponse{
 			Event: pbkvs.WatchResponse_DELETE,
@@ -349,7 +349,7 @@ func (s *GRPCService) Watch(req *empty.Empty, server pbkvs.KVS_WatchServer) erro
 
 	for resp := range chans {
 		if err := server.Send(&resp); err != nil {
-			s.logger.Error("failed to send watch data", zap.Any("resp", resp), zap.String("err", err.Error()))
+			s.logger.Error("failed to send watch data", zap.String("event", resp.Event.String()), zap.Error(err))
 			return status.Error(codes.Internal, err.Error())
 		}
 	}

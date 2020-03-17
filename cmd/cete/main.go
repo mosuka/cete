@@ -172,12 +172,8 @@ func main() {
 					Value: ":9000",
 					Usage: "gRPC address to connect to",
 				},
-				cli.StringFlag{
-					Name:  "key, k",
-					Value: "",
-					Usage: "key",
-				},
 			},
+			ArgsUsage: "[key]",
 			Action: execGet,
 		},
 		{
@@ -189,13 +185,8 @@ func main() {
 					Value: ":9000",
 					Usage: "gRPC address to connect to",
 				},
-				cli.StringFlag{
-					Name:  "key, k",
-					Value: "",
-					Usage: "key",
-				},
 			},
-			ArgsUsage: "[value]",
+			ArgsUsage: "[key] [value]",
 			Action:    execSet,
 		},
 		{
@@ -207,12 +198,8 @@ func main() {
 					Value: ":9000",
 					Usage: "gRPC address to connect to",
 				},
-				cli.StringFlag{
-					Name:  "key, k",
-					Value: "",
-					Usage: "key",
-				},
 			},
+			ArgsUsage: "[key]",
 			Action: execDelete,
 		},
 		{

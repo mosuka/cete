@@ -137,7 +137,7 @@ func (h *PutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				},
 			)
 			httpStatus = http.StatusInternalServerError
-			h.logger.Error("failed to put data", zap.Error(err))
+			h.logger.Error("failed to set data", zap.Error(err))
 		} else {
 			httpStatus = http.StatusOK
 		}

@@ -27,13 +27,13 @@ import (
 func execSet(c *cli.Context) error {
 	grpcAddr := c.String("grpc-addr")
 
-	key := c.String("key")
+	key := c.Args().Get(0)
 	if key == "" {
 		err := errors.New("key argument must be set")
 		return err
 	}
 
-	value := c.Args().Get(0)
+	value := c.Args().Get(1)
 	if value == "" {
 		err := errors.New("value argument must be set")
 		return err
