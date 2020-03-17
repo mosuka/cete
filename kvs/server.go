@@ -92,27 +92,20 @@ func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string,
 }
 
 func (s *Server) Start() {
-	go func() {
-		if err := s.raftServer.Start(); err != nil {
-			s.logger.Error("failed to start Raft server", zap.Error(err))
-			return
-		}
-	}()
+	if err := s.raftServer.Start(); err != nil {
+		s.logger.Error("failed to start Raft server", zap.Error(err))
+		return
+	}
 
-	go func() {
-		if err := s.grpcServer.Start(); err != nil {
-			s.logger.Error("failed to start gRPC server", zap.Error(err))
-			return
-		}
-	}()
+	if err := s.grpcServer.Start(); err != nil {
+		s.logger.Error("failed to start gRPC server", zap.Error(err))
+		return
+	}
 
-	go func() {
-		err := s.httpServer.Start()
-		if err != nil {
-			s.logger.Error("failed to start HTTP server", zap.Error(err))
-			return
-		}
-	}()
+	if err := s.httpServer.Start(); err != nil {
+		s.logger.Error("failed to start HTTP server", zap.Error(err))
+		return
+	}
 
 	if !s.bootstrap {
 		// create gRPC client

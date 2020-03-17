@@ -76,7 +76,7 @@ func NewLogger(logLevel string, logFilename string, logMaxSize int, logMaxBackup
 		),
 		zap.AddCaller(),
 		//zap.AddStacktrace(ll),
-	)
+	).Named("cete")
 
 	return logger
 }

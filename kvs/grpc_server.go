@@ -27,13 +27,13 @@ import (
 )
 
 type GRPCServer struct {
+	grpcAddr string
 	server   *grpc.Server
 	listener net.Listener
 
 	logger *zap.Logger
 }
 
-//func NewGRPCServer(grpcAddr string, raftService raftgrpc.RaftServiceServer, kvsService pbkvs.KVSServer, logger *log.Logger) (*GRPCServer, error) {
 func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *zap.Logger) (*GRPCServer, error) {
 	grpcLogger := logger.Named("grpc")
 	server := grpc.NewServer(
@@ -53,7 +53,6 @@ func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *zap.Logg
 		),
 	)
 
-	//raftgrpc.RegisterRaftServiceServer(server, raftService)
 	pbkvs.RegisterKVSServer(server, kvsService)
 
 	listener, err := net.Listen("tcp", grpcAddr)
@@ -63,6 +62,7 @@ func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *zap.Logg
 	}
 
 	return &GRPCServer{
+		grpcAddr: grpcAddr,
 		server:   server,
 		listener: listener,
 		logger:   logger,
@@ -70,19 +70,16 @@ func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *zap.Logg
 }
 
 func (s *GRPCServer) Start() error {
-	err := s.server.Serve(s.listener)
-	if err != nil {
-		s.logger.Error("failed to start server", zap.String("addr", s.listener.Addr().String()), zap.Error(err))
-		return err
-	}
+	go s.server.Serve(s.listener)
 
+	s.logger.Info("gRPC server started", zap.String("addr", s.grpcAddr))
 	return nil
 }
 
 func (s *GRPCServer) Stop() error {
-	//s.server.GracefulStop()
-	s.server.Stop()
-	s.logger.Info("server stopped")
+	s.server.GracefulStop()
+	//s.server.Stop()
 
+	s.logger.Info("gRPC server stopped", zap.String("addr", s.grpcAddr))
 	return nil
 }

@@ -26,6 +26,7 @@ import (
 )
 
 type HTTPServer struct {
+	httpAddr string
 	listener net.Listener
 	router   *mux.Router
 
@@ -57,17 +58,20 @@ func NewHTTPServer(httpAddr string, grpcAddr string, logger *zap.Logger) (*HTTPS
 	router.Handle("/store/{path:.*}", NewDeleteHandler(grpcClient, logger)).Methods("DELETE")
 	router.Handle("/metrics", promhttp.Handler()).Methods("GET")
 
+	httpLogger := logger.Named("http")
+
 	return &HTTPServer{
+		httpAddr:   httpAddr,
 		listener:   listener,
 		router:     router,
 		grpcClient: grpcClient,
 		logger:     logger,
-		httpLogger: logger.Named("http"),
+		httpLogger: httpLogger,
 	}, nil
 }
 
 func (s *HTTPServer) Start() error {
-	err := http.Serve(
+	go http.Serve(
 		s.listener,
 		accesslog.NewLoggingHandler(
 			s.router,
@@ -76,26 +80,20 @@ func (s *HTTPServer) Start() error {
 			},
 		),
 	)
-	if err != nil {
-		s.logger.Error("failed to start listener", zap.String("addr", s.listener.Addr().String()), zap.Error(err))
-		return err
-	}
 
+	s.logger.Info("HTTP server started", zap.String("addr", s.httpAddr))
 	return nil
 }
 
 func (s *HTTPServer) Stop() error {
-	err := s.listener.Close()
-	if err != nil {
+	if err := s.listener.Close(); err != nil {
 		s.logger.Error("failed to close listener", zap.String("addr", s.listener.Addr().String()), zap.Error(err))
-		return err
 	}
 
-	err = s.grpcClient.Close()
-	if err != nil {
+	if err := s.grpcClient.Close(); err != nil {
 		s.logger.Error("failed to close gRPC client", zap.String("addr", s.grpcClient.conn.Target()), zap.Error(err))
-		return err
 	}
 
+	s.logger.Info("HTTP server stopped", zap.String("addr", s.httpAddr))
 	return nil
 }
