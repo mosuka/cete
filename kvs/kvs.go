@@ -17,7 +17,7 @@ package kvs
 import (
 	"time"
 
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v2"
 	ceteerrors "github.com/mosuka/cete/errors"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"go.uber.org/zap"
