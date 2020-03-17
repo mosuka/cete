@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,8 +34,6 @@ import (
 type RaftServer struct {
 	nodeId    string
 	bindAddr  string
-	grpcAddr  string
-	httpAddr  string
 	dataDir   string
 	bootstrap bool
 	logger    *zap.Logger
@@ -56,7 +54,7 @@ type RaftServer struct {
 	peerClients map[string]*GRPCClient
 }
 
-func NewRaftServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string, dataDir string, bootstrap bool, logger *zap.Logger) (*RaftServer, error) {
+func NewRaftServer(nodeId string, bindAddr string, dataDir string, bootstrap bool, logger *zap.Logger) (*RaftServer, error) {
 	fsmPath := filepath.Join(dataDir, "kvs")
 	fsm, err := NewRaftFSM(fsmPath, logger)
 	if err != nil {
@@ -67,8 +65,6 @@ func NewRaftServer(nodeId string, bindAddr string, grpcAddr string, httpAddr str
 	return &RaftServer{
 		nodeId:    nodeId,
 		bindAddr:  bindAddr,
-		grpcAddr:  grpcAddr,
-		httpAddr:  httpAddr,
 		dataDir:   dataDir,
 		bootstrap: bootstrap,
 		fsm:       fsm,
@@ -128,30 +124,6 @@ func (s *RaftServer) Start() error {
 			},
 		}
 		s.raft.BootstrapCluster(configuration)
-
-		// wait for detect a leader
-		timeout := 60 * time.Second
-		err = s.WaitForDetectLeader(timeout)
-		if err != nil {
-			if err == ceteerrors.ErrTimeout {
-				s.logger.Error("leader detection timed out", zap.Duration("timeout", timeout), zap.Error(err))
-			} else {
-				s.logger.Error("failed to detect leader", zap.Error(err))
-			}
-			return err
-		}
-
-		req := &pbkvs.JoinRequest{
-			Id:       s.nodeId,
-			BindAddr: s.bindAddr,
-			GrpcAddr: s.grpcAddr,
-			HttpAddr: s.httpAddr,
-		}
-		err = s.join(req)
-		if err != nil {
-			s.logger.Error("failed to join node to the cluster", zap.Any("req", req), zap.Error(err))
-			return err
-		}
 	}
 
 	//go func() {
@@ -322,7 +294,7 @@ func (s *RaftServer) startUpdateCluster(checkInterval time.Duration) {
 			//		s.logger.Printf("[ERR] %v", err)
 			//		node := &pbkvs.Node{
 			//			BindAddr: s.bindAddr,
-			//			GrpcAddr: s.grpcAddr,
+			//			GrpcAddr: s.address,
 			//			State: raft.Shutdown.String(),
 			//		}
 			//		s.fsm.setNode(id, node)
@@ -468,6 +440,8 @@ func (s *RaftServer) join(req *pbkvs.JoinRequest) error {
 }
 
 func (s *RaftServer) Join(req *pbkvs.JoinRequest) error {
+	nodeExists := false
+
 	cf := s.raft.GetConfiguration()
 	err := cf.Error()
 	if err != nil {
@@ -477,16 +451,21 @@ func (s *RaftServer) Join(req *pbkvs.JoinRequest) error {
 
 	for _, server := range cf.Configuration().Servers {
 		if server.ID == raft.ServerID(req.Id) {
-			s.logger.Info("node already joined the cluster", zap.String("id", req.Id))
-			return nil
+			s.logger.Debug("node already joined the cluster", zap.String("id", req.Id))
+			nodeExists = true
+			break
+			//return nil
 		}
 	}
 
-	f := s.raft.AddVoter(raft.ServerID(req.Id), raft.ServerAddress(req.BindAddr), 0, 0)
-	err = f.Error()
-	if err != nil {
-		s.logger.Error("failed to add voter", zap.String("id", req.Id), zap.String("addr", req.BindAddr), zap.Error(err))
-		return err
+	if !nodeExists {
+		f := s.raft.AddVoter(raft.ServerID(req.Id), raft.ServerAddress(req.BindAddr), 0, 0)
+		err = f.Error()
+		if err != nil {
+			s.logger.Error("failed to add voter", zap.String("id", req.Id), zap.String("addr", req.BindAddr), zap.Error(err))
+			return err
+		}
+
 	}
 
 	err = s.join(req)

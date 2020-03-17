@@ -27,15 +27,17 @@ import (
 )
 
 type GRPCServer struct {
-	grpcAddr string
+	address  string
+	service  pbkvs.KVSServer
 	server   *grpc.Server
 	listener net.Listener
 
 	logger *zap.Logger
 }
 
-func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *zap.Logger) (*GRPCServer, error) {
+func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (*GRPCServer, error) {
 	grpcLogger := logger.Named("grpc")
+
 	server := grpc.NewServer(
 		grpc.MaxRecvMsgSize(math.MaxInt64),
 		grpc.MaxSendMsgSize(math.MaxInt64),
@@ -53,16 +55,23 @@ func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *zap.Logg
 		),
 	)
 
-	pbkvs.RegisterKVSServer(server, kvsService)
-
-	listener, err := net.Listen("tcp", grpcAddr)
+	service, err := NewGRPCService(raftServer, logger)
 	if err != nil {
-		logger.Error("failed to create listener", zap.String("addr", grpcAddr), zap.Error(err))
+		logger.Error("failed to create key value store service", zap.Error(err))
+		return nil, err
+	}
+
+	pbkvs.RegisterKVSServer(server, service)
+
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		logger.Error("failed to create listener", zap.String("address", address), zap.Error(err))
 		return nil, err
 	}
 
 	return &GRPCServer{
-		grpcAddr: grpcAddr,
+		address:  address,
+		service:  service,
 		server:   server,
 		listener: listener,
 		logger:   logger,
@@ -72,7 +81,7 @@ func NewGRPCServer(grpcAddr string, kvsService pbkvs.KVSServer, logger *zap.Logg
 func (s *GRPCServer) Start() error {
 	go s.server.Serve(s.listener)
 
-	s.logger.Info("gRPC server started", zap.String("addr", s.grpcAddr))
+	s.logger.Info("gRPC server started", zap.String("addr", s.address))
 	return nil
 }
 
@@ -80,6 +89,6 @@ func (s *GRPCServer) Stop() error {
 	s.server.GracefulStop()
 	//s.server.Stop()
 
-	s.logger.Info("gRPC server stopped", zap.String("addr", s.grpcAddr))
+	s.logger.Info("gRPC server stopped", zap.String("addr", s.address))
 	return nil
 }
