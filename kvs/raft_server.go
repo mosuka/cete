@@ -17,14 +17,15 @@ package kvs
 import (
 	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
+	raftbadgerdb "github.com/bbva/raft-badger"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/raft"
-	raftboltdb "github.com/hashicorp/raft-boltdb"
 	ceteerrors "github.com/mosuka/cete/errors"
 	"github.com/mosuka/cete/protobuf"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
@@ -99,16 +100,32 @@ func (s *RaftServer) Start() error {
 		return err
 	}
 
-	// create raft log store
-	raftLogStorePath := filepath.Join(s.dataDir, "raft.db")
-	raftLogStore, err := raftboltdb.NewBoltStore(raftLogStorePath)
+	logStorePath := filepath.Join(s.dataDir, "raft", "log")
+	err = os.MkdirAll(logStorePath, 0755)
 	if err != nil {
-		s.logger.Error("failed to create raft log store", zap.String("path", raftLogStorePath), zap.Error(err))
+		s.logger.Fatal(err.Error())
+		return err
+	}
+	raftLogStore, err := raftbadgerdb.NewBadgerStore(logStorePath)
+	if err != nil {
+		s.logger.Fatal(err.Error())
+		return err
+	}
+
+	stableStorePath := filepath.Join(s.dataDir, "raft", "stable")
+	err = os.MkdirAll(stableStorePath, 0755)
+	if err != nil {
+		s.logger.Fatal(err.Error())
+		return err
+	}
+	raftStableStore, err := raftbadgerdb.NewBadgerStore(stableStorePath)
+	if err != nil {
+		s.logger.Fatal(err.Error())
 		return err
 	}
 
 	// create raft
-	s.raft, err = raft.NewRaft(config, s.fsm, raftLogStore, raftLogStore, snapshotStore, s.transport)
+	s.raft, err = raft.NewRaft(config, s.fsm, raftLogStore, raftStableStore, snapshotStore, s.transport)
 	if err != nil {
 		s.logger.Error("failed to create raft", zap.Any("config", config), zap.Error(err))
 		return err
