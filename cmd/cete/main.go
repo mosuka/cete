@@ -174,7 +174,7 @@ func main() {
 				},
 			},
 			ArgsUsage: "[key]",
-			Action: execGet,
+			Action:    execGet,
 		},
 		{
 			Name:  "set",
@@ -200,7 +200,7 @@ func main() {
 				},
 			},
 			ArgsUsage: "[key]",
-			Action: execDelete,
+			Action:    execDelete,
 		},
 		{
 			Name:  "watch",

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
 package kvs
 
 import (
+	"time"
+
+	ceteerrors "github.com/mosuka/cete/errors"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"go.uber.org/zap"
 )
@@ -26,8 +29,8 @@ type Server struct {
 	httpAddr string
 	dataDir  string
 
-	bootstrap bool
-	joinAddr  string
+	bootstrap    bool
+	peerGrpcAddr string
 
 	raftServer *RaftServer
 	grpcServer *GRPCServer
@@ -36,16 +39,14 @@ type Server struct {
 	logger *zap.Logger
 }
 
-func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string, dataDir string, joinAddr string, logger *zap.Logger) (*Server, error) {
-	bootstrap := joinAddr == "" || joinAddr == grpcAddr
+func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string, dataDir string, peerGrpcAddr string, logger *zap.Logger) (*Server, error) {
+	bootstrap := peerGrpcAddr == "" || peerGrpcAddr == grpcAddr
 
-	raftServer, err := NewRaftServer(nodeId, bindAddr, grpcAddr, httpAddr, dataDir, bootstrap, logger)
+	raftServer, err := NewRaftServer(nodeId, bindAddr, dataDir, bootstrap, logger)
 	if err != nil {
 		logger.Error("failed to create Raft server",
 			zap.String("id", nodeId),
 			zap.String("bind_addr", bindAddr),
-			zap.String("grpc_addr", grpcAddr),
-			zap.String("http_addr", httpAddr),
 			zap.String("data_dir", dataDir),
 			zap.Bool("bootstrap", bootstrap),
 			zap.String("err", err.Error()),
@@ -53,16 +54,7 @@ func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string,
 		return nil, err
 	}
 
-	//raftService := raftServer.transport.GetServerService()
-
-	kvsService, err := NewGRPCService(raftServer, logger)
-	if err != nil {
-		logger.Error("failed to create key value store service", zap.Error(err))
-		return nil, err
-	}
-
-	//grpcServer, err := NewGRPCServer(grpcAddr, raftService, kvsService, logger)
-	grpcServer, err := NewGRPCServer(grpcAddr, kvsService, logger)
+	grpcServer, err := NewGRPCServer(grpcAddr, raftServer, logger)
 	if err != nil {
 		logger.Error("failed to create gRPC server", zap.String("grpc_addr", grpcAddr), zap.Error(err))
 		return nil, err
@@ -75,17 +67,17 @@ func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string,
 	}
 
 	server := &Server{
-		nodeId:     nodeId,
-		bindAddr:   bindAddr,
-		grpcAddr:   grpcAddr,
-		httpAddr:   httpAddr,
-		dataDir:    dataDir,
-		bootstrap:  bootstrap,
-		joinAddr:   joinAddr,
-		raftServer: raftServer,
-		grpcServer: grpcServer,
-		httpServer: httpServer,
-		logger:     logger,
+		nodeId:       nodeId,
+		bindAddr:     bindAddr,
+		grpcAddr:     grpcAddr,
+		httpAddr:     httpAddr,
+		dataDir:      dataDir,
+		bootstrap:    bootstrap,
+		peerGrpcAddr: peerGrpcAddr,
+		raftServer:   raftServer,
+		grpcServer:   grpcServer,
+		httpServer:   httpServer,
+		logger:       logger,
 	}
 
 	return server, nil
@@ -107,30 +99,47 @@ func (s *Server) Start() {
 		return
 	}
 
-	if !s.bootstrap {
-		// create gRPC client
-		client, err := NewGRPCClient(s.joinAddr)
-		if err != nil {
-			s.logger.Error("failed to create gRPC client", zap.String("addr", s.joinAddr), zap.Error(err))
-			return
-		}
-		defer func() {
-			if err := client.Close(); err != nil {
-				s.logger.Error("failed to close gRPC client", zap.String("addr", s.joinAddr), zap.Error(err))
+	// wait for detect leader if it's bootstrap
+	if s.bootstrap {
+		timeout := 60 * time.Second
+		if err := s.raftServer.WaitForDetectLeader(timeout); err != nil {
+			if err == ceteerrors.ErrTimeout {
+				s.logger.Error("leader detection timed out", zap.Duration("timeout", timeout), zap.Error(err))
+			} else {
+				s.logger.Error("failed to detect leader", zap.Error(err))
 			}
-		}()
-
-		// join to the existing cluster
-		joinRequest := &pbkvs.JoinRequest{
-			Id:       s.nodeId,
-			BindAddr: s.bindAddr,
-			GrpcAddr: s.grpcAddr,
-			HttpAddr: s.httpAddr,
-		}
-		if err = client.Join(joinRequest); err != nil {
-			s.logger.Error("failed to join node to the cluster", zap.Any("req", joinRequest), zap.Error(err))
 			return
 		}
+	}
+
+	// create gRPC client for joining node
+	var joinAddr string
+	if s.bootstrap {
+		joinAddr = s.grpcAddr
+	} else {
+		joinAddr = s.peerGrpcAddr
+	}
+	client, err := NewGRPCClient(joinAddr)
+	if err != nil {
+		s.logger.Error("failed to create gRPC client", zap.String("addr", joinAddr), zap.Error(err))
+		return
+	}
+	defer func() {
+		if err := client.Close(); err != nil {
+			s.logger.Error("failed to close gRPC client", zap.String("addr", joinAddr), zap.Error(err))
+		}
+	}()
+
+	// join this node to the existing cluster
+	joinRequest := &pbkvs.JoinRequest{
+		Id:       s.nodeId,
+		BindAddr: s.bindAddr,
+		GrpcAddr: s.grpcAddr,
+		HttpAddr: s.httpAddr,
+	}
+	if err = client.Join(joinRequest); err != nil {
+		s.logger.Error("failed to join node to the cluster", zap.Any("req", joinRequest), zap.Error(err))
+		return
 	}
 }
 
