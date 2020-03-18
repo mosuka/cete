@@ -34,6 +34,8 @@ service KVS {
     rpc Delete (DeleteRequest) returns (google.protobuf.Empty) {}
 
     rpc Watch (google.protobuf.Empty) returns (stream WatchResponse) {}
+
+    rpc Metrics (google.protobuf.Empty) returns (MetricsResponse) {}
 }
 
 message Node {
@@ -101,6 +103,10 @@ message WatchResponse {
     }
     Event event = 1;
     google.protobuf.Any data = 2;
+}
+
+message MetricsResponse {
+    bytes metrics = 1;
 }
 
 message KeyValuePair {

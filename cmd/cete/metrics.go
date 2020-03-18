@@ -12,13 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package errors
+package main
 
-import "errors"
+import (
+	"fmt"
+	"os"
 
-var (
-	ErrNotFoundLeader    = errors.New("does not found leader")
-	ErrNodeAlreadyExists = errors.New("node already exists")
-	ErrNotFound          = errors.New("not found")
-	ErrTimeout           = errors.New("timeout")
+	"github.com/mosuka/cete/kvs"
+	"github.com/urfave/cli"
 )
+
+func execMetrics(c *cli.Context) error {
+	grpcAddr := c.String("grpc-addr")
+
+	client, err := kvs.NewGRPCClient(grpcAddr)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := client.Close()
+		if err != nil {
+			_, err = fmt.Fprintln(os.Stderr, err)
+		}
+	}()
+
+	resp, err := client.Metrics()
+	if err != nil {
+		return err
+	}
+
+	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s", string(resp.Metrics)))
+
+	return nil
+}

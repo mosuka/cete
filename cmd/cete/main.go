@@ -214,6 +214,18 @@ func main() {
 			},
 			Action: execWatch,
 		},
+		{
+			Name:  "metrics",
+			Usage: "Get node metrics",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "grpc-addr, g",
+					Value: ":9000",
+					Usage: "gRPC address to connect to",
+				},
+			},
+			Action: execMetrics,
+		},
 	}
 
 	cli.HelpFlag = cli.BoolFlag{

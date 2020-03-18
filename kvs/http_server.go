@@ -21,7 +21,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mash/go-accesslog"
 	cetelog "github.com/mosuka/cete/log"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -56,7 +55,9 @@ func NewHTTPServer(httpAddr string, grpcAddr string, logger *zap.Logger) (*HTTPS
 	router.Handle("/store/{path:.*}", NewPutHandler(grpcClient, logger)).Methods("PUT")
 	router.Handle("/store/{path:.*}", NewGetHandler(grpcClient, logger)).Methods("GET")
 	router.Handle("/store/{path:.*}", NewDeleteHandler(grpcClient, logger)).Methods("DELETE")
-	router.Handle("/metrics", promhttp.Handler()).Methods("GET")
+	//router.Handle("/metrics", promhttp.Handler()).Methods("GET")
+	//router.Handle("/metrics", promhttp.HandlerFor(metric.Registry, promhttp.HandlerOpts{})).Methods("GET")
+	router.Handle("/metrics", NewMetricsHandler(grpcClient, logger)).Methods("GET")
 
 	httpLogger := logger.Named("http")
 

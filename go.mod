@@ -13,6 +13,7 @@ require (
 	github.com/mash/go-accesslog v1.1.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/prometheus/client_golang v1.5.1
+	github.com/prometheus/common v0.9.1
 	github.com/urfave/cli v1.22.3
 	go.uber.org/zap v1.14.1
 	google.golang.org/grpc v1.28.0

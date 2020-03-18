@@ -164,3 +164,14 @@ func (c *GRPCClient) Delete(req *pbkvs.DeleteRequest, opts ...grpc.CallOption) e
 func (c *GRPCClient) Watch(req *empty.Empty, opts ...grpc.CallOption) (pbkvs.KVS_WatchClient, error) {
 	return c.client.Watch(c.ctx, req, opts...)
 }
+
+func (c *GRPCClient) Metrics(opts ...grpc.CallOption) (*pbkvs.MetricsResponse, error) {
+	resp, err := c.client.Metrics(c.ctx, &empty.Empty{}, opts...)
+	if err != nil {
+		st, _ := status.FromError(err)
+
+		return nil, errors.New(st.Message())
+	}
+
+	return resp, nil
+}
