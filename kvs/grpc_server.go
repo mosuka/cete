@@ -20,7 +20,7 @@ import (
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/mosuka/cete/metric"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -43,13 +43,13 @@ func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (
 		grpc.MaxSendMsgSize(math.MaxInt64),
 		grpc.StreamInterceptor(
 			grpcmiddleware.ChainStreamServer(
-				grpcprometheus.StreamServerInterceptor,
+				metric.GrpcMetrics.StreamServerInterceptor(),
 				grpczap.StreamServerInterceptor(grpcLogger),
 			),
 		),
 		grpc.UnaryInterceptor(
 			grpcmiddleware.ChainUnaryServer(
-				grpcprometheus.UnaryServerInterceptor,
+				metric.GrpcMetrics.UnaryServerInterceptor(),
 				grpczap.UnaryServerInterceptor(grpcLogger),
 			),
 		),
@@ -62,6 +62,9 @@ func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (
 	}
 
 	pbkvs.RegisterKVSServer(server, service)
+
+	// Initialize all metrics.
+	metric.GrpcMetrics.InitializeMetrics(server)
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -86,8 +89,8 @@ func (s *GRPCServer) Start() error {
 }
 
 func (s *GRPCServer) Stop() error {
-	s.server.GracefulStop()
-	//s.server.Stop()
+	//s.server.GracefulStop()
+	s.server.Stop()
 
 	s.logger.Info("gRPC server stopped", zap.String("addr", s.address))
 	return nil

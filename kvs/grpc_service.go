@@ -15,19 +15,23 @@
 package kvs
 
 import (
+	"bytes"
 	"context"
+	"github.com/mosuka/cete/metric"
+	"github.com/prometheus/common/expfmt"
 	"sync"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/hashicorp/raft"
-	"github.com/mosuka/cete/errors"
+	ceteerrors "github.com/mosuka/cete/errors"
 	"github.com/mosuka/cete/protobuf"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	//grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 )
 
 type GRPCService struct {
@@ -82,21 +86,25 @@ func (s *GRPCService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.
 
 	err := s.raftServer.Join(req)
 	if err != nil {
-		s.logger.Error("failed to join node to the cluster", zap.String("id", req.Id), zap.Error(err))
-		return resp, status.Error(codes.Internal, err.Error())
-	}
-
-	// notify
-	joinReqAny := &any.Any{}
-	if err := protobuf.UnmarshalAny(req, joinReqAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the watch data", zap.String("id", req.Id), zap.String("err", err.Error()))
-	} else {
-		watchResp := &pbkvs.WatchResponse{
-			Event: pbkvs.WatchResponse_JOIN,
-			Data:  joinReqAny,
+		switch err {
+		case ceteerrors.ErrNodeAlreadyExists:
+			s.logger.Debug("node already exists", zap.Any("req", req), zap.Error(err))
+		default:
+			s.logger.Error("failed to join node to the cluster", zap.String("id", req.Id), zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
 		}
-		for c := range s.watchChans {
-			c <- *watchResp
+	} else {
+		joinReqAny := &any.Any{}
+		if err := protobuf.UnmarshalAny(req, joinReqAny); err != nil {
+			s.logger.Error("failed to unmarshal request to the watch data", zap.String("id", req.Id), zap.String("err", err.Error()))
+		} else {
+			watchResp := &pbkvs.WatchResponse{
+				Event: pbkvs.WatchResponse_JOIN,
+				Data:  joinReqAny,
+			}
+			for c := range s.watchChans {
+				c <- *watchResp
+			}
 		}
 	}
 
@@ -207,7 +215,7 @@ func (s *GRPCService) Get(ctx context.Context, req *pbkvs.GetRequest) (*pbkvs.Ge
 	resp, err = s.raftServer.Get(req)
 	if err != nil {
 		switch err {
-		case errors.ErrNotFound:
+		case ceteerrors.ErrNotFound:
 			s.logger.Debug("key not found", zap.Binary("key", req.Key), zap.String("err", err.Error()))
 			return resp, status.Error(codes.NotFound, err.Error())
 		default:
@@ -355,4 +363,25 @@ func (s *GRPCService) Watch(req *empty.Empty, server pbkvs.KVS_WatchServer) erro
 	}
 
 	return nil
+}
+
+func (s *GRPCService) Metrics(ctx context.Context, req *empty.Empty) (*pbkvs.MetricsResponse, error) {
+	resp := &pbkvs.MetricsResponse{}
+
+	var err error
+
+	gather, err := metric.Registry.Gather()
+	if err != nil {
+		s.logger.Error("failed to get gather", zap.Error(err))
+	}
+	out := &bytes.Buffer{}
+	for _, mf := range gather {
+		if _, err := expfmt.MetricFamilyToText(out, mf); err != nil {
+			s.logger.Error("failed to parse metric family", zap.Error(err))
+		}
+	}
+
+	resp.Metrics = out.Bytes()
+
+	return resp, nil
 }

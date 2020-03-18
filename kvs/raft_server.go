@@ -428,6 +428,27 @@ func (s *RaftServer) State() string {
 	return s.raft.State().String()
 }
 
+func (s *RaftServer) Exist(id string) (bool, error) {
+	exist := false
+
+	cf := s.raft.GetConfiguration()
+	err := cf.Error()
+	if err != nil {
+		s.logger.Error("failed to get Raft configuration", zap.Error(err))
+		return false, err
+	}
+
+	for _, server := range cf.Configuration().Servers {
+		if server.ID == raft.ServerID(id) {
+			s.logger.Debug("node already joined the cluster", zap.String("id", id))
+			exist = true
+			break
+		}
+	}
+
+	return exist, nil
+}
+
 func (s *RaftServer) join(req *pbkvs.JoinRequest) error {
 	nodeAny := &any.Any{}
 	err := protobuf.UnmarshalAny(req, nodeAny)
@@ -457,42 +478,31 @@ func (s *RaftServer) join(req *pbkvs.JoinRequest) error {
 }
 
 func (s *RaftServer) Join(req *pbkvs.JoinRequest) error {
-	nodeExists := false
-
-	cf := s.raft.GetConfiguration()
-	err := cf.Error()
+	nodeExists, err := s.Exist(req.Id)
 	if err != nil {
-		s.logger.Error("failed to get Raft configuration", zap.Error(err))
 		return err
 	}
 
-	for _, server := range cf.Configuration().Servers {
-		if server.ID == raft.ServerID(req.Id) {
-			s.logger.Debug("node already joined the cluster", zap.String("id", req.Id))
-			nodeExists = true
-			break
-			//return nil
+	if nodeExists {
+		s.logger.Debug("node already exists", zap.String("id", req.Id), zap.String("addr", req.BindAddr))
+	} else {
+		if future := s.raft.AddVoter(raft.ServerID(req.Id), raft.ServerAddress(req.BindAddr), 0, 0); future.Error() != nil {
+			s.logger.Error("failed to add voter", zap.String("id", req.Id), zap.String("addr", req.BindAddr), zap.Error(future.Error()))
+			return future.Error()
 		}
+		s.logger.Info("node has successfully joined", zap.String("id", req.Id))
 	}
 
-	if !nodeExists {
-		f := s.raft.AddVoter(raft.ServerID(req.Id), raft.ServerAddress(req.BindAddr), 0, 0)
-		err = f.Error()
-		if err != nil {
-			s.logger.Error("failed to add voter", zap.String("id", req.Id), zap.String("addr", req.BindAddr), zap.Error(err))
-			return err
-		}
-
-	}
-
-	err = s.join(req)
-	if err != nil {
+	if err := s.join(req); err != nil {
 		s.logger.Error("failed to join node", zap.Any("req", req), zap.Error(err))
+		return err
+	}
+
+	if nodeExists {
+		return ceteerrors.ErrNodeAlreadyExists
+	} else {
 		return nil
 	}
-
-	s.logger.Info("the node has successfully joined the cluster", zap.Any("req", req))
-	return nil
 }
 
 func (s *RaftServer) leave(req *pbkvs.LeaveRequest) error {
@@ -524,33 +534,26 @@ func (s *RaftServer) leave(req *pbkvs.LeaveRequest) error {
 }
 
 func (s *RaftServer) Leave(req *pbkvs.LeaveRequest) error {
-	cf := s.raft.GetConfiguration()
-	err := cf.Error()
+	nodeExists, err := s.Exist(req.Id)
 	if err != nil {
-		s.logger.Error("failed to get Raft configuration", zap.Error(err))
 		return err
 	}
 
-	for _, server := range cf.Configuration().Servers {
-		if server.ID == raft.ServerID(req.Id) {
-			f := s.raft.RemoveServer(server.ID, 0, 0)
-			if err = f.Error(); err != nil {
-				s.logger.Error("failed to remove server", zap.String("id", req.Id), zap.Error(err))
-				return err
-			} else {
-				s.logger.Info("the server has successfully removed", zap.String("id", req.Id))
-				break
-			}
+	if nodeExists {
+		if future := s.raft.RemoveServer(raft.ServerID(req.Id), 0, 0); future.Error() != nil {
+			s.logger.Error("failed to remove server", zap.String("id", req.Id), zap.Error(future.Error()))
+			return future.Error()
 		}
+		s.logger.Info("node has successfully left", zap.String("id", req.Id))
+	} else {
+		s.logger.Debug("node does not exists", zap.String("id", req.Id))
 	}
 
-	// delete metadata
 	if err = s.leave(req); err != nil {
 		s.logger.Error("failed to join node", zap.Any("req", req), zap.Error(err))
 		return err
 	}
 
-	s.logger.Info("the node has successfully leaved from the cluster", zap.Any("req", req))
 	return nil
 }
 

@@ -16,15 +16,14 @@ package kvs
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"net/http"
-	"strconv"
-
 	"github.com/gorilla/mux"
 	"github.com/mosuka/cete/errors"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"github.com/mosuka/cete/version"
 	"go.uber.org/zap"
+	"io/ioutil"
+	"net/http"
+	"strconv"
 )
 
 type RootHandler struct {
@@ -38,9 +37,42 @@ func NewRootHandler(logger *zap.Logger) *RootHandler {
 }
 
 func (h *RootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	//start := time.Now()
 	httpStatus := http.StatusOK
+	content := make([]byte, 0)
 
-	content, _ := json.Marshal(
+	//defer func() {
+	//	metric.HttpDurationSeconds.With(
+	//		prometheus.Labels{
+	//			"method": r.Method,
+	//			"uri":    r.RequestURI,
+	//			"protocol": r.Proto,
+	//			"referer": r.Referer(),
+	//			"user_agent": r.UserAgent(),
+	//		},
+	//	).Observe(float64(time.Since(start)) / float64(time.Second))
+	//	metric.HttpRequestsTotal.With(
+	//		prometheus.Labels{
+	//			"method": r.Method,
+	//			"uri":    r.RequestURI,
+	//			"protocol": r.Proto,
+	//			"referer": r.Referer(),
+	//			"user_agent": r.UserAgent(),
+	//		},
+	//	).Inc()
+	//	metric.HttpResponsesTotal.With(
+	//		prometheus.Labels{
+	//			"method": r.Method,
+	//			"uri":    r.RequestURI,
+	//			"protocol": r.Proto,
+	//			"referer": r.Referer(),
+	//			"user_agent": r.UserAgent(),
+	//			"status": string(httpStatus),
+	//		},
+	//	).Inc()
+	//}()
+
+	content, _ = json.Marshal(
 		map[string]interface{}{
 			"version": version.Version,
 		},
@@ -184,6 +216,43 @@ func (h *DeleteHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", http.DetectContentType(content))
+	w.Header().Set("Content-Length", strconv.FormatInt(int64(len(content)), 10))
+	w.WriteHeader(httpStatus)
+	_, _ = w.Write(content)
+}
+
+type MetricsHandler struct {
+	client *GRPCClient
+	logger *zap.Logger
+}
+
+func NewMetricsHandler(client *GRPCClient, logger *zap.Logger) *MetricsHandler {
+	return &MetricsHandler{
+		client: client,
+		logger: logger,
+	}
+}
+
+func (h *MetricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	content := make([]byte, 0)
+	httpStatus := http.StatusOK
+	contentType := "text/plain; version=0.0.4; charset=utf-8"
+
+	if resp, err := h.client.Metrics(); err != nil {
+		content, _ = json.Marshal(
+			map[string]interface{}{
+				"error": err.Error(),
+			},
+		)
+		httpStatus = http.StatusInternalServerError
+		contentType = "application/json"
+		h.logger.Error("failed to delete data", zap.Error(err))
+	} else {
+		content = resp.Metrics
+		httpStatus = http.StatusOK
+	}
+
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Length", strconv.FormatInt(int64(len(content)), 10))
 	w.WriteHeader(httpStatus)
 	_, _ = w.Write(content)
