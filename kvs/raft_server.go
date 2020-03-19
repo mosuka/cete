@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dgraph-io/badger/v2"
 	raftbadgerdb "github.com/bbva/raft-badger"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
@@ -106,7 +107,15 @@ func (s *RaftServer) Start() error {
 		s.logger.Fatal(err.Error())
 		return err
 	}
-	raftLogStore, err := raftbadgerdb.NewBadgerStore(logStorePath)
+	logStoreBadgerOpts := badger.DefaultOptions(logStorePath)
+	logStoreBadgerOpts.ValueDir = logStorePath
+	logStoreBadgerOpts.SyncWrites = false
+	logStoreBadgerOpts.Logger = nil
+	logStoreOpts := raftbadgerdb.Options{
+		Path:                logStorePath,
+		BadgerOptions:       &logStoreBadgerOpts,
+	}
+	raftLogStore, err := raftbadgerdb.New(logStoreOpts)
 	if err != nil {
 		s.logger.Fatal(err.Error())
 		return err
@@ -118,7 +127,15 @@ func (s *RaftServer) Start() error {
 		s.logger.Fatal(err.Error())
 		return err
 	}
-	raftStableStore, err := raftbadgerdb.NewBadgerStore(stableStorePath)
+	stableStoreBadgerOpts := badger.DefaultOptions(stableStorePath)
+	stableStoreBadgerOpts.ValueDir = stableStorePath
+	stableStoreBadgerOpts.SyncWrites = false
+	stableStoreBadgerOpts.Logger = nil
+	stableStoreOpts := raftbadgerdb.Options{
+		Path:                stableStorePath,
+		BadgerOptions:       &stableStoreBadgerOpts,
+	}
+	raftStableStore, err := raftbadgerdb.New(stableStoreOpts)
 	if err != nil {
 		s.logger.Fatal(err.Error())
 		return err
