@@ -41,7 +41,11 @@ service KVS {
         };
     }
 
-    rpc Snapshot (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc Snapshot (google.protobuf.Empty) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            get: "/v1/snapshot"
+        };
+    }
 
     rpc Get (GetRequest) returns (GetResponse) {
         option (google.api.http) = {
