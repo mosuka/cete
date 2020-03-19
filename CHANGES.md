@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Add leave endpoint #18 @mosuka
 - Add snapshot endpoint #17 @mosuka
 - Disable raft-badgerdb logging #16 @mosuka
 - Migrate to grpc-gateway #15 @mosuka
