@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -37,10 +36,7 @@ func execWatch(c *cli.Context) error {
 		return err
 	}
 	defer func() {
-		err := client.Close()
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-		}
+		_ = client.Close()
 	}()
 
 	req := &empty.Empty{}
@@ -56,7 +52,6 @@ func execWatch(c *cli.Context) error {
 				break
 			}
 			if err != nil {
-				log.Println(err.Error())
 				break
 			}
 
@@ -117,8 +112,6 @@ func execWatch(c *cli.Context) error {
 	signal.Notify(quitCh, os.Kill, os.Interrupt, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	<-quitCh
-
-	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("quit"))
 
 	return nil
 }

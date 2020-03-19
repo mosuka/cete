@@ -34,7 +34,7 @@ func execGet(c *cli.Context) error {
 	}
 
 	req := &pbkvs.GetRequest{
-		Key: []byte(key),
+		Key: key,
 	}
 
 	client, err := kvs.NewGRPCClient(grpcAddr)
@@ -42,10 +42,7 @@ func execGet(c *cli.Context) error {
 		return err
 	}
 	defer func() {
-		err := client.Close()
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-		}
+		_ = client.Close()
 	}()
 
 	resp, err := client.Get(req)
@@ -58,7 +55,7 @@ func execGet(c *cli.Context) error {
 		return nil
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%v", string(resp.Value)))
+	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s", string(resp.Value)))
 
 	return nil
 }
