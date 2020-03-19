@@ -62,6 +62,21 @@ func (j *CeteMarshaler) NewDecoder(r io.Reader) runtime.Decoder {
 			case *pbkvs.PutRequest:
 				v.(*pbkvs.PutRequest).Value = buffer
 				return nil
+			case *pbkvs.JoinRequest:
+				var tmpValue map[string]interface{}
+				if err = json.Unmarshal(buffer, &tmpValue); err != nil {
+					return err
+				}
+				if bindAddr, ok := tmpValue["bind_addr"].(string); ok {
+					v.(*pbkvs.JoinRequest).BindAddr = bindAddr
+				}
+				if grpcAddr, ok := tmpValue["grpc_addr"].(string); ok {
+					v.(*pbkvs.JoinRequest).GrpcAddr = grpcAddr
+				}
+				if httpAddr, ok := tmpValue["http_addr"].(string); ok {
+					v.(*pbkvs.JoinRequest).HttpAddr = httpAddr
+				}
+				return nil
 			default:
 				return json.Unmarshal(buffer, v)
 			}

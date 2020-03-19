@@ -223,6 +223,36 @@ You can see the result in JSON format. The result of the above command is:
 
 Recommend 3 or more odd number of nodes in the cluster. In failure scenarios, data loss is inevitable, so avoid deploying single nodes.
 
+The above example, the node joins to the cluster at startup, but you can also join the node that already started on standalone mode to the cluster later, as follows:
+
+```bash
+$ ./bin/cete join --grpc-addr=:9000 node2 127.0.0.1:9001
+```
+
+or, you can use the RESTful API as follows:
+
+```bash
+$ curl -X PUT 'http://127.0.0.1:8000/v1/cluster/node2' --data-binary '
+{
+  "bind_addr": ":7001",
+  "grpc_addr": ":9001",
+  "http_addr": ":8001"
+}
+'
+```
+
+To remove a node from the cluster, execute the following command:
+
+```bash
+$ ./bin/cete leave --grpc-addr=:9000 node2
+```
+
+or, you can use the RESTful API as follows:
+
+```bash
+$ curl -X DELETE 'http://127.0.0.1:8000/v1/cluster/node2'
+```
+
 The following command indexes documents to any node in the cluster:
 
 ```bash
