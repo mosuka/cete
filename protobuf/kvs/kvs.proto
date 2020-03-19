@@ -25,7 +25,11 @@ option go_package = "github.com/mosuka/cete/protobuf/kvs";
 
 service KVS {
     rpc Join (JoinRequest) returns (google.protobuf.Empty) {}
-    rpc Leave (LeaveRequest) returns (google.protobuf.Empty) {}
+    rpc Leave (LeaveRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/v1/node/{id}"
+        };
+    }
     rpc Node (google.protobuf.Empty) returns (NodeResponse) {
         option (google.api.http) = {
             get: "/v1/node"
