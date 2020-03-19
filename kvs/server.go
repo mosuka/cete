@@ -32,9 +32,9 @@ type Server struct {
 	bootstrap    bool
 	peerGrpcAddr string
 
-	raftServer *RaftServer
-	grpcServer *GRPCServer
-	httpServer *HTTPServer
+	raftServer  *RaftServer
+	grpcServer  *GRPCServer
+	grpcGateway *GRPCGateway
 
 	logger *zap.Logger
 }
@@ -60,9 +60,9 @@ func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string,
 		return nil, err
 	}
 
-	httpServer, err := NewHTTPServer(httpAddr, grpcAddr, logger)
+	grpcGateway, err := NewGRPCGateway(httpAddr, grpcAddr, logger)
 	if err != nil {
-		logger.Error("failed to create HTTP server", zap.String("http_addr", httpAddr), zap.String("grpc_addr", grpcAddr), zap.Error(err))
+		logger.Error("failed to create gRPC gateway", zap.String("http_addr", httpAddr), zap.String("grpc_addr", grpcAddr), zap.Error(err))
 		return nil, err
 	}
 
@@ -76,7 +76,7 @@ func NewServer(nodeId string, bindAddr string, grpcAddr string, httpAddr string,
 		peerGrpcAddr: peerGrpcAddr,
 		raftServer:   raftServer,
 		grpcServer:   grpcServer,
-		httpServer:   httpServer,
+		grpcGateway:  grpcGateway,
 		logger:       logger,
 	}
 
@@ -94,8 +94,8 @@ func (s *Server) Start() {
 		return
 	}
 
-	if err := s.httpServer.Start(); err != nil {
-		s.logger.Error("failed to start HTTP server", zap.Error(err))
+	if err := s.grpcGateway.Start(); err != nil {
+		s.logger.Error("failed to start gRPC gateway", zap.Error(err))
 		return
 	}
 
@@ -144,8 +144,8 @@ func (s *Server) Start() {
 }
 
 func (s *Server) Stop() {
-	if err := s.httpServer.Stop(); err != nil {
-		s.logger.Error("failed to stop HTTP server", zap.Error(err))
+	if err := s.grpcGateway.Stop(); err != nil {
+		s.logger.Error("failed to stop gRPC gateway", zap.Error(err))
 	}
 
 	if err := s.grpcServer.Stop(); err != nil {

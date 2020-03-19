@@ -17,8 +17,6 @@ package kvs
 import (
 	"bytes"
 	"context"
-	"github.com/mosuka/cete/metric"
-	"github.com/prometheus/common/expfmt"
 	"sync"
 	"time"
 
@@ -26,12 +24,13 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/hashicorp/raft"
 	ceteerrors "github.com/mosuka/cete/errors"
+	"github.com/mosuka/cete/metric"
 	"github.com/mosuka/cete/protobuf"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	//grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 )
 
 type GRPCService struct {
@@ -216,10 +215,10 @@ func (s *GRPCService) Get(ctx context.Context, req *pbkvs.GetRequest) (*pbkvs.Ge
 	if err != nil {
 		switch err {
 		case ceteerrors.ErrNotFound:
-			s.logger.Debug("key not found", zap.Binary("key", req.Key), zap.String("err", err.Error()))
+			s.logger.Debug("key not found", zap.String("key", req.Key), zap.String("err", err.Error()))
 			return resp, status.Error(codes.NotFound, err.Error())
 		default:
-			s.logger.Debug("failed to get data", zap.Binary("key", req.Key), zap.String("err", err.Error()))
+			s.logger.Debug("failed to get data", zap.String("key", req.Key), zap.String("err", err.Error()))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 	}
@@ -320,14 +319,14 @@ func (s *GRPCService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*em
 	// delete value by key
 	err := s.raftServer.Delete(req)
 	if err != nil {
-		s.logger.Error("failed to delete data", zap.Binary("key", req.Key), zap.Error(err))
+		s.logger.Error("failed to delete data", zap.String("key", req.Key), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
 	// notify
 	deleteReqAny := &any.Any{}
 	if err := protobuf.UnmarshalAny(req, deleteReqAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the watch data", zap.Binary("key", req.Key), zap.Error(err))
+		s.logger.Error("failed to unmarshal request to the watch data", zap.String("key", req.Key), zap.Error(err))
 	} else {
 		watchResp := &pbkvs.WatchResponse{
 			Event: pbkvs.WatchResponse_DELETE,

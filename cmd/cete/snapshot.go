@@ -15,9 +15,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/mosuka/cete/kvs"
 	"github.com/urfave/cli"
 )
@@ -30,10 +27,7 @@ func execSnapshot(c *cli.Context) error {
 		return err
 	}
 	defer func() {
-		err := client.Close()
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-		}
+		_ = client.Close()
 	}()
 
 	err = client.Snapshot()

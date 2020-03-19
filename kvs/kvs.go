@@ -59,14 +59,14 @@ func (b *KVS) Close() error {
 	return nil
 }
 
-func (b *KVS) Get(key []byte) ([]byte, error) {
+func (b *KVS) Get(key string) ([]byte, error) {
 	start := time.Now()
 
 	var value []byte
 	if err := b.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(key)
+		item, err := txn.Get([]byte(key))
 		if err != nil {
-			b.logger.Error("failed to get item", zap.Binary("key", key), zap.Error(err))
+			b.logger.Error("failed to get item", zap.String("key", key), zap.Error(err))
 			return err
 		}
 
@@ -75,58 +75,58 @@ func (b *KVS) Get(key []byte) ([]byte, error) {
 			return nil
 		})
 		if err != nil {
-			b.logger.Error("failed to get item value", zap.Binary("key", key), zap.Error(err))
+			b.logger.Error("failed to get item value", zap.String("key", key), zap.Error(err))
 			return err
 		}
 
 		return nil
 	}); err == badger.ErrKeyNotFound {
-		b.logger.Debug("not found", zap.Binary("key", key), zap.Error(err))
+		b.logger.Debug("not found", zap.String("key", key), zap.Error(err))
 		return nil, ceteerrors.ErrNotFound
 	} else if err != nil {
-		b.logger.Error("failed to get value", zap.Binary("key", key), zap.Error(err))
+		b.logger.Error("failed to get value", zap.String("key", key), zap.Error(err))
 		return nil, err
 	}
 
-	b.logger.Debug("get", zap.Binary("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	b.logger.Debug("get", zap.String("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return value, nil
 }
 
-func (b *KVS) Set(key []byte, value []byte) error {
+func (b *KVS) Set(key string, value []byte) error {
 	start := time.Now()
 
 	if err := b.db.Update(func(txn *badger.Txn) error {
-		err := txn.Set(key, value)
+		err := txn.Set([]byte(key), value)
 		if err != nil {
-			b.logger.Error("failed to set item", zap.Binary("key", key), zap.Error(err))
+			b.logger.Error("failed to set item", zap.String("key", key), zap.Error(err))
 			return err
 		}
 		return nil
 	}); err != nil {
-		b.logger.Error("failed to set value", zap.Binary("key", key), zap.Error(err))
+		b.logger.Error("failed to set value", zap.String("key", key), zap.Error(err))
 		return err
 	}
 
-	b.logger.Debug("set", zap.Binary("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	b.logger.Debug("set", zap.String("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return nil
 }
 
-func (b *KVS) Delete(key []byte) error {
+func (b *KVS) Delete(key string) error {
 	start := time.Now()
 
 	if err := b.db.Update(func(txn *badger.Txn) error {
-		err := txn.Delete(key)
+		err := txn.Delete([]byte(key))
 		if err != nil {
-			b.logger.Error("failed to delete item", zap.Binary("key", key), zap.Error(err))
+			b.logger.Error("failed to delete item", zap.String("key", key), zap.Error(err))
 			return err
 		}
 		return nil
 	}); err != nil {
-		b.logger.Error("failed to delete value", zap.Binary("key", key), zap.Error(err))
+		b.logger.Error("failed to delete value", zap.String("key", key), zap.Error(err))
 		return err
 	}
 
-	b.logger.Debug("delete", zap.Binary("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	b.logger.Debug("delete", zap.String("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return nil
 }
 
@@ -148,19 +148,19 @@ func (b *KVS) SnapshotItems() <-chan *pbkvs.KeyValuePair {
 
 			for it.Rewind(); it.Valid(); it.Next() {
 				item := it.Item()
-				key := item.Key()
+				key := string(item.Key())
 
 				var value []byte
 				if err := item.Value(func(val []byte) error {
 					value = append([]byte{}, val...)
 					return nil
 				}); err != nil {
-					b.logger.Error("failed to get item value", zap.Binary("key", key), zap.Error(err))
+					b.logger.Error("failed to get item value", zap.String("key", key), zap.Error(err))
 					return err
 				}
 
 				ch <- &pbkvs.KeyValuePair{
-					Key:   append([]byte{}, key...),
+					Key:   key,
 					Value: append([]byte{}, value...),
 				}
 

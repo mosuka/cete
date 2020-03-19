@@ -657,7 +657,7 @@ func (s *RaftServer) Get(req *pbkvs.GetRequest) (*pbkvs.GetResponse, error) {
 func (s *RaftServer) Set(req *pbkvs.PutRequest) error {
 	kvpAny := &any.Any{}
 	if err := protobuf.UnmarshalAny(req, kvpAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the command data", zap.Binary("key", req.Key), zap.Error(err))
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Key), zap.Error(err))
 		return err
 	}
 
@@ -668,7 +668,7 @@ func (s *RaftServer) Set(req *pbkvs.PutRequest) error {
 
 	msg, err := proto.Marshal(c)
 	if err != nil {
-		s.logger.Error("failed to marshal the command into the bytes as the message", zap.Binary("key", req.Key), zap.Error(err))
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("key", req.Key), zap.Error(err))
 		return err
 	}
 
@@ -683,7 +683,7 @@ func (s *RaftServer) Set(req *pbkvs.PutRequest) error {
 func (s *RaftServer) Delete(req *pbkvs.DeleteRequest) error {
 	kvpAny := &any.Any{}
 	if err := protobuf.UnmarshalAny(req, kvpAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the command data", zap.Binary("key", req.Key), zap.Error(err))
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Key), zap.Error(err))
 		return err
 	}
 
@@ -694,12 +694,12 @@ func (s *RaftServer) Delete(req *pbkvs.DeleteRequest) error {
 
 	msg, err := proto.Marshal(c)
 	if err != nil {
-		s.logger.Error("failed to marshal the command into the bytes as the message", zap.Binary("key", req.Key), zap.Error(err))
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("key", req.Key), zap.Error(err))
 		return err
 	}
 
 	if future := s.raft.Apply(msg, 10*time.Second); future.Error() != nil {
-		s.logger.Error("failed to unmarshal request to the command data", zap.Binary("key", req.Key), zap.Error(future.Error()))
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Key), zap.Error(future.Error()))
 		return future.Error()
 	}
 

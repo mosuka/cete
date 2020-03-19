@@ -67,30 +67,30 @@ func (f *RaftFSM) Close() error {
 	return nil
 }
 
-func (f *RaftFSM) Get(key []byte) ([]byte, error) {
+func (f *RaftFSM) Get(key string) ([]byte, error) {
 	value, err := f.kvs.Get(key)
 	if err != nil {
-		f.logger.Error("failed to get value", zap.Binary("key", key), zap.Error(err))
+		f.logger.Error("failed to get value", zap.String("key", key), zap.Error(err))
 		return nil, err
 	}
 
 	return value, nil
 }
 
-func (f *RaftFSM) applySet(key []byte, value []byte) interface{} {
+func (f *RaftFSM) applySet(key string, value []byte) interface{} {
 	err := f.kvs.Set(key, value)
 	if err != nil {
-		f.logger.Error("failed to set value", zap.Binary("key", key), zap.Error(err))
+		f.logger.Error("failed to set value", zap.String("key", key), zap.Error(err))
 		return err
 	}
 
 	return nil
 }
 
-func (f *RaftFSM) applyDelete(key []byte) interface{} {
+func (f *RaftFSM) applyDelete(key string) interface{} {
 	err := f.kvs.Delete(key)
 	if err != nil {
-		f.logger.Error("failed to delete value", zap.Binary("key", key), zap.Error(err))
+		f.logger.Error("failed to delete value", zap.String("key", key), zap.Error(err))
 		return err
 	}
 
@@ -253,7 +253,7 @@ func (f *RaftFSM) Restore(rc io.ReadCloser) error {
 			return err
 		}
 
-		f.logger.Debug("restore", zap.Binary("key", kvp.Key))
+		f.logger.Debug("restore", zap.String("key", kvp.Key))
 		keyCount = keyCount + 1
 	}
 

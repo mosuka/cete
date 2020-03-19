@@ -31,10 +31,7 @@ func execNode(c *cli.Context) error {
 		return err
 	}
 	defer func() {
-		err := client.Close()
-		if err != nil {
-			_, err = fmt.Fprintln(os.Stderr, err)
-		}
+		_ = client.Close()
 	}()
 
 	resp, err := client.Node()
@@ -42,12 +39,12 @@ func execNode(c *cli.Context) error {
 		return err
 	}
 
-	clusterBytes, err := json.MarshalIndent(resp, "", "  ")
+	clusterBytes, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%v\n", string(clusterBytes)))
+	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s", string(clusterBytes)))
 
 	return nil
 }

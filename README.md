@@ -25,8 +25,6 @@ Cete implements [Raft consensus algorithm](https://raft.github.io/) by [hashicor
 Cete makes it easy bringing up a cluster of BadgerDB (a cete of badgers) .
 
 
-
-
 ## Features
 
 - Easy deployment
@@ -55,7 +53,6 @@ If you want to build for other platform, set `GOOS`, `GOARCH` environment variab
 $ make GOOS=darwin build
 ```
 
-
 ### Binaries
 
 You can see the binary file when build successful like so:
@@ -83,13 +80,11 @@ $ make test
 $ make GOOS=linux dist
 ```
 
-
-#### macOS
+### macOS
 
 ```bash
 $ make GOOS=darwin dist
 ```
-
 
 
 ## Starting Cete node
@@ -100,10 +95,16 @@ Starting cete is easy as follows:
 $ ./bin/cete start --id=node1 --bind-addr=:7000 --grpc-addr=:9000 --http-addr=:8000 --data-dir=/tmp/cete/node1
 ```
 
-You can get node info as follows: 
+You can get the node information with the following command:
 
 ```bash
-$ ./bin/cete node --grpc-addr=:9000
+$ ./bin/cete node --grpc-addr=:9000 | jq .
+```
+
+or the following URL:
+
+```bash
+$ curl -X GET http://localhost:8000/v1/node | jq .
 ```
 
 The result of the above command is:
@@ -119,21 +120,33 @@ The result of the above command is:
 }
 ```
 
-### Setting a value by key via CLI
+### Putting a key-value
 
-Setting a value by key, execute the following command:
+To put a key-value, execute the following command:
 
 ```bash
 $ ./bin/cete set --grpc-addr=:9000 --key=key1 value1
 ```
 
-
-### Getting a value by key via CLI
-
-Getting a value by key, execute the following command:
+or, you can use the RESTful API as follows:
 
 ```bash
-$ ./bin/cete get --grpc-addr=:9000 --key=key1
+$ curl -X PUT 'http://127.0.0.1:8000/v1/data/1' --data-binary value1
+$ curl -X PUT 'http://127.0.0.1:8000/v1/data/2' -H "Content-Type: image/jpeg" --data-binary @/path/to/photo.jpg
+```
+
+### Getting a key-value
+
+To get a key-value, execute the following command:
+
+```bash
+$ ./bin/cete get --grpc-addr=:9000 1
+```
+
+or, you can use the RESTful API as follows:
+
+```bash
+$ curl -X GET 'http://127.0.0.1:8000/v1/data/1'
 ```
 
 You can see the result. The result of the above command is:
@@ -142,45 +155,18 @@ You can see the result. The result of the above command is:
 value1
 ```
 
-
 ### Deleting a value by key via CLI
 
 Deleting a value by key, execute the following command:
 
 ```bash
-$ ./bin/cete delete --grpc-addr=:9000 --key=key1
+$ ./bin/cete delete --grpc-addr=:9000 1
 ```
 
-
-## Using HTTP REST API
-
-Also you can do above commands via HTTP REST API that listened port 8000.
-
-
-### Indexing a value by key via HTTP REST API
-
-Indexing a value by key via HTTP is as following:
+or, you can use the RESTful API as follows:
 
 ```bash
-$ curl -s -X PUT 'http://127.0.0.1:8000/store/key1' -d value1
-```
-
-
-### Getting a value by key via HTTP REST API
-
-Getting a value by key via HTTP is as following:
-
-```bash
-$ curl -s -X GET 'http://127.0.0.1:8000/store/key1'
-```
-
-
-### Deleting a value by key via HTTP REST API
-
-Deleting a value by key via HTTP is as following:
-
-```bash
-$ curl -X DELETE 'http://127.0.0.1:8000/store/key1'
+$ curl -X DELETE 'http://127.0.0.1:8000/v1/data/1'
 ```
 
 
@@ -199,7 +185,13 @@ This instructs each new node to join an existing node, each node recognizes the 
 So you have a 3-node cluster. That way you can tolerate the failure of 1 node. You can check the cluster with the following command:
 
 ```bash
-$ ./bin/cete cluster --grpc-addr=:9000
+$ ./bin/cete cluster --grpc-addr=:9000 | jq .
+```
+
+or, you can use the RESTful API as follows:
+
+```bash
+$ curl -X GET 'http://127.0.0.1:8000/v1/cluster' | jq .
 ```
 
 You can see the result in JSON format. The result of the above command is:
@@ -234,13 +226,13 @@ Recommend 3 or more odd number of nodes in the cluster. In failure scenarios, da
 The following command indexes documents to any node in the cluster:
 
 ```bash
-$ ./bin/cete set --grpc-addr=:9000 --key=key1 value1
+$ ./bin/cete set --grpc-addr=:9000 1 value1
 ```
 
 So, you can get the document from the node specified by the above command as follows:
 
 ```bash
-$ ./bin/cete get --grpc-addr=:9000 --key=key1
+$ ./bin/cete get --grpc-addr=:9000 1
 ```
 
 You can see the result. The result of the above command is:
@@ -252,8 +244,8 @@ value1
 You can also get the same document from other nodes in the cluster as follows:
 
 ```bash
-$ ./bin/cete get --grpc-addr=:9001 --key=key1
-$ ./bin/cete get --grpc-addr=:9002 --key=key1
+$ ./bin/cete get --grpc-addr=:9001 1
+$ ./bin/cete get --grpc-addr=:9002 1
 ```
 
 You can see the result. The result of the above command is:
@@ -303,7 +295,7 @@ $ docker run --rm --name cete-node1 \
     -p 8000:8000 \
     -p 9000:9000 \
     mosuka/cete:latest cete start \
-      --node-id=node1 \
+      --id=node1 \
       --bind-addr=:7000 \
       --grpc-addr=:9000 \
       --http-addr=:8000 \

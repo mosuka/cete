@@ -16,8 +16,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
-	"os"
 
 	"github.com/mosuka/cete/kvs"
 	pbkvs "github.com/mosuka/cete/protobuf/kvs"
@@ -41,7 +39,7 @@ func execSet(c *cli.Context) error {
 
 	// create PutRequest
 	req := &pbkvs.PutRequest{
-		Key:   []byte(key),
+		Key:   key,
 		Value: []byte(value),
 	}
 
@@ -50,10 +48,7 @@ func execSet(c *cli.Context) error {
 		return err
 	}
 	defer func() {
-		err := client.Close()
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-		}
+		_ = client.Close()
 	}()
 
 	err = client.Put(req)

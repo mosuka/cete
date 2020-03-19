@@ -16,6 +16,8 @@ syntax = "proto3";
 
 import "google/protobuf/any.proto";
 import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+import "protoc-gen-swagger/options/annotations.proto";
 
 package kvs;
 
@@ -24,18 +26,43 @@ option go_package = "github.com/mosuka/cete/protobuf/kvs";
 service KVS {
     rpc Join (JoinRequest) returns (google.protobuf.Empty) {}
     rpc Leave (LeaveRequest) returns (google.protobuf.Empty) {}
-    rpc Node (google.protobuf.Empty) returns (NodeResponse) {}
-    rpc Cluster (google.protobuf.Empty) returns (ClusterResponse) {}
+    rpc Node (google.protobuf.Empty) returns (NodeResponse) {
+        option (google.api.http) = {
+            get: "/v1/node"
+        };
+    }
+    rpc Cluster (google.protobuf.Empty) returns (ClusterResponse) {
+        option (google.api.http) = {
+            get: "/v1/cluster"
+        };
+    }
 
     rpc Snapshot (google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
-    rpc Get (GetRequest) returns (GetResponse) {}
-    rpc Put (PutRequest) returns (google.protobuf.Empty) {}
-    rpc Delete (DeleteRequest) returns (google.protobuf.Empty) {}
+    rpc Get (GetRequest) returns (GetResponse) {
+        option (google.api.http) = {
+            get: "/v1/data/{key=**}"
+        };
+    }
+    rpc Put (PutRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            put: "/v1/data/{key=**}"
+            body: "*"
+        };
+    }
+    rpc Delete (DeleteRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/v1/data/{key=**}"
+        };
+    }
 
     rpc Watch (google.protobuf.Empty) returns (stream WatchResponse) {}
 
-    rpc Metrics (google.protobuf.Empty) returns (MetricsResponse) {}
+    rpc Metrics (google.protobuf.Empty) returns (MetricsResponse) {
+        option (google.api.http) = {
+            get: "/v1/metrics"
+        };
+    }
 }
 
 message Node {
@@ -65,7 +92,7 @@ message ClusterResponse {
 }
 
 message GetRequest {
-    bytes key = 1;
+    string key = 1;
 }
 
 message GetResponse {
@@ -73,12 +100,12 @@ message GetResponse {
 }
 
 message PutRequest {
-    bytes key = 1;
+    string key = 1;
     bytes value = 2;
 }
 
 message DeleteRequest {
-    bytes key = 1;
+    string key = 1;
 }
 
 message KVSCommand {
@@ -110,6 +137,6 @@ message MetricsResponse {
 }
 
 message KeyValuePair {
-    bytes key = 1;
+    string key = 1;
     bytes value = 2;
 }
