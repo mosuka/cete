@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
 	raftbadgerdb "github.com/bbva/raft-badger"
+	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/raft"
@@ -112,8 +112,8 @@ func (s *RaftServer) Start() error {
 	logStoreBadgerOpts.SyncWrites = false
 	logStoreBadgerOpts.Logger = nil
 	logStoreOpts := raftbadgerdb.Options{
-		Path:                logStorePath,
-		BadgerOptions:       &logStoreBadgerOpts,
+		Path:          logStorePath,
+		BadgerOptions: &logStoreBadgerOpts,
 	}
 	raftLogStore, err := raftbadgerdb.New(logStoreOpts)
 	if err != nil {
@@ -132,8 +132,8 @@ func (s *RaftServer) Start() error {
 	stableStoreBadgerOpts.SyncWrites = false
 	stableStoreBadgerOpts.Logger = nil
 	stableStoreOpts := raftbadgerdb.Options{
-		Path:                stableStorePath,
-		BadgerOptions:       &stableStoreBadgerOpts,
+		Path:          stableStorePath,
+		BadgerOptions: &stableStoreBadgerOpts,
 	}
 	raftStableStore, err := raftbadgerdb.New(stableStoreOpts)
 	if err != nil {
