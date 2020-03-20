@@ -98,7 +98,7 @@ $ ./bin/cete start --id=node1 --bind-addr=:7000 --grpc-addr=:9000 --http-addr=:8
 You can get the node information with the following command:
 
 ```bash
-$ ./bin/cete node --grpc-addr=:9000 | jq .
+$ ./bin/cete node | jq .
 ```
 
 or the following URL:
@@ -125,7 +125,7 @@ The result of the above command is:
 To put a key-value, execute the following command:
 
 ```bash
-$ ./bin/cete set --grpc-addr=:9000 --key=key1 value1
+$ ./bin/cete set 1 value1
 ```
 
 or, you can use the RESTful API as follows:
@@ -140,7 +140,7 @@ $ curl -X PUT 'http://127.0.0.1:8000/v1/data/2' -H "Content-Type: image/jpeg" --
 To get a key-value, execute the following command:
 
 ```bash
-$ ./bin/cete get --grpc-addr=:9000 1
+$ ./bin/cete get 1
 ```
 
 or, you can use the RESTful API as follows:
@@ -160,7 +160,7 @@ value1
 Deleting a value by key, execute the following command:
 
 ```bash
-$ ./bin/cete delete --grpc-addr=:9000 1
+$ ./bin/cete delete 1
 ```
 
 or, you can use the RESTful API as follows:
@@ -185,7 +185,7 @@ This instructs each new node to join an existing node, each node recognizes the 
 So you have a 3-node cluster. That way you can tolerate the failure of 1 node. You can check the cluster with the following command:
 
 ```bash
-$ ./bin/cete cluster --grpc-addr=:9000 | jq .
+$ ./bin/cete cluster | jq .
 ```
 
 or, you can use the RESTful API as follows:
