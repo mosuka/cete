@@ -74,6 +74,12 @@ test:
 	@echo "   BUILD_TAGS  = $(BUILD_TAGS)"
 	@$(GO) test -v -tags="$(BUILD_TAGS)" $(PACKAGES)
 
+.PHONY: coverage
+coverage:
+	@echo ">> checking coverage of all packages"
+	$(GO) test -coverprofile=./cover.out -tags="$(BUILD_TAGS)" $(PACKAGES)
+	$(GO) tool cover -html=cover.out -o cover.html
+
 .PHONY: build
 build:
 	@echo ">> building binaries"
