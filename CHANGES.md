@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Refactoring #21 @mosuka
 - Update Makefile #20 @mosuka
 
 ## [v0.2.0] 2020-03-19
