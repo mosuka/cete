@@ -17,33 +17,33 @@ package main
 import (
 	"errors"
 
-	"github.com/mosuka/cete/kvs"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/client"
+	"github.com/mosuka/cete/protobuf"
 	"github.com/urfave/cli"
 )
 
-func execLeave(c *cli.Context) error {
-	grpcAddr := c.String("grpc-addr")
+func execLeave(ctx *cli.Context) error {
+	grpcAddr := ctx.String("grpc-addr")
 
-	id := c.Args().Get(0)
+	id := ctx.Args().Get(0)
 	if id == "" {
 		err := errors.New("id argument must be set")
 		return err
 	}
 
-	req := &pbkvs.LeaveRequest{
+	req := &protobuf.LeaveRequest{
 		Id: id,
 	}
 
-	client, err := kvs.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClient(grpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = c.Close()
 	}()
 
-	err = client.Leave(req)
+	err = c.Leave(req)
 	if err != nil {
 		return err
 	}

@@ -17,55 +17,55 @@ package main
 import (
 	"errors"
 
-	"github.com/mosuka/cete/kvs"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/client"
+	"github.com/mosuka/cete/protobuf"
 	"github.com/urfave/cli"
 )
 
-func execJoin(c *cli.Context) error {
-	grpcAddr := c.String("grpc-addr")
+func execJoin(ctx *cli.Context) error {
+	grpcAddr := ctx.String("grpc-addr")
 
-	id := c.Args().Get(0)
+	id := ctx.Args().Get(0)
 	if id == "" {
 		err := errors.New("id argument must be set")
 		return err
 	}
 
-	targetGrpcAddr := c.Args().Get(1)
+	targetGrpcAddr := ctx.Args().Get(1)
 	if targetGrpcAddr == "" {
 		err := errors.New("address argument must be set")
 		return err
 	}
 
-	targetClient, err := kvs.NewGRPCClient(targetGrpcAddr)
+	t, err := client.NewGRPCClient(targetGrpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = targetClient.Close()
+		_ = t.Close()
 	}()
 
-	nodeResp, err := targetClient.Node()
+	nodeResp, err := t.Node()
 	if err != nil {
 		return err
 	}
 
-	req := &pbkvs.JoinRequest{
+	req := &protobuf.JoinRequest{
 		Id:       id,
 		BindAddr: nodeResp.Node.BindAddr,
 		GrpcAddr: nodeResp.Node.GrpcAddr,
 		HttpAddr: nodeResp.Node.HttpAddr,
 	}
 
-	client, err := kvs.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClient(grpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = c.Close()
 	}()
 
-	err = client.Join(req)
+	err = c.Join(req)
 	if err != nil {
 		return err
 	}

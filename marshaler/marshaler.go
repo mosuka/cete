@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvs
+package marshaler
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ import (
 	"io/ioutil"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/protobuf"
 )
 
 var (
@@ -35,11 +35,11 @@ func (*CeteMarshaler) ContentType() string {
 
 func (j *CeteMarshaler) Marshal(v interface{}) ([]byte, error) {
 	switch v.(type) {
-	case *pbkvs.GetResponse:
-		value := v.(*pbkvs.GetResponse).Value
+	case *protobuf.GetResponse:
+		value := v.(*protobuf.GetResponse).Value
 		return value, nil
-	case *pbkvs.MetricsResponse:
-		value := v.(*pbkvs.MetricsResponse).Metrics
+	case *protobuf.MetricsResponse:
+		value := v.(*protobuf.MetricsResponse).Metrics
 		return value, nil
 	default:
 		return json.Marshal(v)
@@ -59,22 +59,22 @@ func (j *CeteMarshaler) NewDecoder(r io.Reader) runtime.Decoder {
 			}
 
 			switch v.(type) {
-			case *pbkvs.PutRequest:
-				v.(*pbkvs.PutRequest).Value = buffer
+			case *protobuf.PutRequest:
+				v.(*protobuf.PutRequest).Value = buffer
 				return nil
-			case *pbkvs.JoinRequest:
+			case *protobuf.JoinRequest:
 				var tmpValue map[string]interface{}
 				if err = json.Unmarshal(buffer, &tmpValue); err != nil {
 					return err
 				}
 				if bindAddr, ok := tmpValue["bind_addr"].(string); ok {
-					v.(*pbkvs.JoinRequest).BindAddr = bindAddr
+					v.(*protobuf.JoinRequest).BindAddr = bindAddr
 				}
 				if grpcAddr, ok := tmpValue["grpc_addr"].(string); ok {
-					v.(*pbkvs.JoinRequest).GrpcAddr = grpcAddr
+					v.(*protobuf.JoinRequest).GrpcAddr = grpcAddr
 				}
 				if httpAddr, ok := tmpValue["http_addr"].(string); ok {
-					v.(*pbkvs.JoinRequest).HttpAddr = httpAddr
+					v.(*protobuf.JoinRequest).HttpAddr = httpAddr
 				}
 				return nil
 			default:

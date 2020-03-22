@@ -17,41 +17,41 @@ package main
 import (
 	"errors"
 
-	"github.com/mosuka/cete/kvs"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/client"
+	"github.com/mosuka/cete/protobuf"
 	"github.com/urfave/cli"
 )
 
-func execSet(c *cli.Context) error {
-	grpcAddr := c.String("grpc-addr")
+func execSet(ctx *cli.Context) error {
+	grpcAddr := ctx.String("grpc-addr")
 
-	key := c.Args().Get(0)
+	key := ctx.Args().Get(0)
 	if key == "" {
 		err := errors.New("key argument must be set")
 		return err
 	}
 
-	value := c.Args().Get(1)
+	value := ctx.Args().Get(1)
 	if value == "" {
 		err := errors.New("value argument must be set")
 		return err
 	}
 
 	// create PutRequest
-	req := &pbkvs.PutRequest{
+	req := &protobuf.PutRequest{
 		Key:   key,
 		Value: []byte(value),
 	}
 
-	client, err := kvs.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClient(grpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = c.Close()
 	}()
 
-	err = client.Put(req)
+	err = c.Put(req)
 	if err != nil {
 		return err
 	}

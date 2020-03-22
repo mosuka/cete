@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvs
+package server
 
 import (
 	"bytes"
@@ -23,10 +23,11 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/hashicorp/raft"
-	ceteerrors "github.com/mosuka/cete/errors"
+	"github.com/mosuka/cete/client"
+	"github.com/mosuka/cete/errors"
+	"github.com/mosuka/cete/marshaler"
 	"github.com/mosuka/cete/metric"
 	"github.com/mosuka/cete/protobuf"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -38,7 +39,7 @@ type GRPCService struct {
 	logger     *zap.Logger
 
 	watchMutex sync.RWMutex
-	watchChans map[chan pbkvs.WatchResponse]struct{}
+	watchChans map[chan protobuf.WatchResponse]struct{}
 }
 
 func NewGRPCService(raftServer *RaftServer, logger *zap.Logger) (*GRPCService, error) {
@@ -46,11 +47,11 @@ func NewGRPCService(raftServer *RaftServer, logger *zap.Logger) (*GRPCService, e
 		raftServer: raftServer,
 		logger:     logger,
 
-		watchChans: make(map[chan pbkvs.WatchResponse]struct{}),
+		watchChans: make(map[chan protobuf.WatchResponse]struct{}),
 	}, nil
 }
 
-func (s *GRPCService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.Empty, error) {
+func (s *GRPCService) Join(ctx context.Context, req *protobuf.JoinRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	if s.raftServer.raft.State() != raft.Leader {
@@ -62,19 +63,19 @@ func (s *GRPCService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
-		client, err := NewGRPCClient(string(leaderAddr))
+		c, err := client.NewGRPCClient(string(leaderAddr))
 		if err != nil {
 			s.logger.Error("failed to create gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 		defer func() {
-			err := client.Close()
+			err := c.Close()
 			if err != nil {
 				s.logger.Error("failed to close gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			}
 		}()
 
-		err = client.Join(req)
+		err = c.Join(req)
 		if err != nil {
 			s.logger.Error("failed to forward request", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
@@ -86,7 +87,7 @@ func (s *GRPCService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.
 	err := s.raftServer.Join(req)
 	if err != nil {
 		switch err {
-		case ceteerrors.ErrNodeAlreadyExists:
+		case errors.ErrNodeAlreadyExists:
 			s.logger.Debug("node already exists", zap.Any("req", req), zap.Error(err))
 		default:
 			s.logger.Error("failed to join node to the cluster", zap.String("id", req.Id), zap.Error(err))
@@ -94,11 +95,11 @@ func (s *GRPCService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.
 		}
 	} else {
 		joinReqAny := &any.Any{}
-		if err := protobuf.UnmarshalAny(req, joinReqAny); err != nil {
+		if err := marshaler.UnmarshalAny(req, joinReqAny); err != nil {
 			s.logger.Error("failed to unmarshal request to the watch data", zap.String("id", req.Id), zap.String("err", err.Error()))
 		} else {
-			watchResp := &pbkvs.WatchResponse{
-				Event: pbkvs.WatchResponse_JOIN,
+			watchResp := &protobuf.WatchResponse{
+				Event: protobuf.WatchResponse_JOIN,
 				Data:  joinReqAny,
 			}
 			for c := range s.watchChans {
@@ -110,7 +111,7 @@ func (s *GRPCService) Join(ctx context.Context, req *pbkvs.JoinRequest) (*empty.
 	return resp, nil
 }
 
-func (s *GRPCService) Leave(ctx context.Context, req *pbkvs.LeaveRequest) (*empty.Empty, error) {
+func (s *GRPCService) Leave(ctx context.Context, req *protobuf.LeaveRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	if s.raftServer.raft.State() != raft.Leader {
@@ -122,19 +123,19 @@ func (s *GRPCService) Leave(ctx context.Context, req *pbkvs.LeaveRequest) (*empt
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
-		client, err := NewGRPCClient(string(leaderAddr))
+		c, err := client.NewGRPCClient(string(leaderAddr))
 		if err != nil {
 			s.logger.Error("failed to create gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 		defer func() {
-			err := client.Close()
+			err := c.Close()
 			if err != nil {
 				s.logger.Error("failed to close gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			}
 		}()
 
-		err = client.Leave(req)
+		err = c.Leave(req)
 		if err != nil {
 			s.logger.Error("failed to forward request", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
@@ -151,11 +152,11 @@ func (s *GRPCService) Leave(ctx context.Context, req *pbkvs.LeaveRequest) (*empt
 
 	// notify
 	leaveReqAny := &any.Any{}
-	if err := protobuf.UnmarshalAny(req, leaveReqAny); err != nil {
+	if err := marshaler.UnmarshalAny(req, leaveReqAny); err != nil {
 		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
 	} else {
-		watchResp := &pbkvs.WatchResponse{
-			Event: pbkvs.WatchResponse_LEAVE,
+		watchResp := &protobuf.WatchResponse{
+			Event: protobuf.WatchResponse_LEAVE,
 			Data:  leaveReqAny,
 		}
 		for c := range s.watchChans {
@@ -166,8 +167,8 @@ func (s *GRPCService) Leave(ctx context.Context, req *pbkvs.LeaveRequest) (*empt
 	return resp, nil
 }
 
-func (s *GRPCService) Node(ctx context.Context, req *empty.Empty) (*pbkvs.NodeResponse, error) {
-	resp := &pbkvs.NodeResponse{}
+func (s *GRPCService) Node(ctx context.Context, req *empty.Empty) (*protobuf.NodeResponse, error) {
+	resp := &protobuf.NodeResponse{}
 
 	var err error
 
@@ -180,8 +181,8 @@ func (s *GRPCService) Node(ctx context.Context, req *empty.Empty) (*pbkvs.NodeRe
 	return resp, nil
 }
 
-func (s *GRPCService) Cluster(ctx context.Context, req *empty.Empty) (*pbkvs.ClusterResponse, error) {
-	resp := &pbkvs.ClusterResponse{}
+func (s *GRPCService) Cluster(ctx context.Context, req *empty.Empty) (*protobuf.ClusterResponse, error) {
+	resp := &protobuf.ClusterResponse{}
 
 	var err error
 
@@ -206,15 +207,15 @@ func (s *GRPCService) Snapshot(ctx context.Context, req *empty.Empty) (*empty.Em
 	return resp, nil
 }
 
-func (s *GRPCService) Get(ctx context.Context, req *pbkvs.GetRequest) (*pbkvs.GetResponse, error) {
-	resp := &pbkvs.GetResponse{}
+func (s *GRPCService) Get(ctx context.Context, req *protobuf.GetRequest) (*protobuf.GetResponse, error) {
+	resp := &protobuf.GetResponse{}
 
 	var err error
 
 	resp, err = s.raftServer.Get(req)
 	if err != nil {
 		switch err {
-		case ceteerrors.ErrNotFound:
+		case errors.ErrNotFound:
 			s.logger.Debug("key not found", zap.String("key", req.Key), zap.String("err", err.Error()))
 			return resp, status.Error(codes.NotFound, err.Error())
 		default:
@@ -226,7 +227,7 @@ func (s *GRPCService) Get(ctx context.Context, req *pbkvs.GetRequest) (*pbkvs.Ge
 	return resp, nil
 }
 
-func (s *GRPCService) Put(ctx context.Context, req *pbkvs.PutRequest) (*empty.Empty, error) {
+func (s *GRPCService) Put(ctx context.Context, req *protobuf.PutRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	if s.raftServer.raft.State() != raft.Leader {
@@ -238,19 +239,19 @@ func (s *GRPCService) Put(ctx context.Context, req *pbkvs.PutRequest) (*empty.Em
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
-		client, err := NewGRPCClient(string(leaderAddr))
+		c, err := client.NewGRPCClient(string(leaderAddr))
 		if err != nil {
 			s.logger.Error("failed to create gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 		defer func() {
-			err := client.Close()
+			err := c.Close()
 			if err != nil {
 				s.logger.Error("failed to close gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			}
 		}()
 
-		err = client.Put(req)
+		err = c.Put(req)
 		if err != nil {
 			s.logger.Error("failed to forward request", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
@@ -268,11 +269,11 @@ func (s *GRPCService) Put(ctx context.Context, req *pbkvs.PutRequest) (*empty.Em
 
 	// notify
 	putReqAny := &any.Any{}
-	if err := protobuf.UnmarshalAny(req, putReqAny); err != nil {
+	if err := marshaler.UnmarshalAny(req, putReqAny); err != nil {
 		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
 	} else {
-		watchResp := &pbkvs.WatchResponse{
-			Event: pbkvs.WatchResponse_PUT,
+		watchResp := &protobuf.WatchResponse{
+			Event: protobuf.WatchResponse_PUT,
 			Data:  putReqAny,
 		}
 		for c := range s.watchChans {
@@ -283,7 +284,7 @@ func (s *GRPCService) Put(ctx context.Context, req *pbkvs.PutRequest) (*empty.Em
 	return resp, nil
 }
 
-func (s *GRPCService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*empty.Empty, error) {
+func (s *GRPCService) Delete(ctx context.Context, req *protobuf.DeleteRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	if s.raftServer.raft.State() != raft.Leader {
@@ -295,19 +296,19 @@ func (s *GRPCService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*em
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
-		client, err := NewGRPCClient(string(leaderAddr))
+		c, err := client.NewGRPCClient(string(leaderAddr))
 		if err != nil {
 			s.logger.Error("failed to create gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 		defer func() {
-			err := client.Close()
+			err := c.Close()
 			if err != nil {
 				s.logger.Error("failed to close gRPC client", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			}
 		}()
 
-		err = client.Delete(req)
+		err = c.Delete(req)
 		if err != nil {
 			s.logger.Error("failed to forward request", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
@@ -325,11 +326,11 @@ func (s *GRPCService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*em
 
 	// notify
 	deleteReqAny := &any.Any{}
-	if err := protobuf.UnmarshalAny(req, deleteReqAny); err != nil {
+	if err := marshaler.UnmarshalAny(req, deleteReqAny); err != nil {
 		s.logger.Error("failed to unmarshal request to the watch data", zap.String("key", req.Key), zap.Error(err))
 	} else {
-		watchResp := &pbkvs.WatchResponse{
-			Event: pbkvs.WatchResponse_DELETE,
+		watchResp := &protobuf.WatchResponse{
+			Event: protobuf.WatchResponse_DELETE,
 			Data:  deleteReqAny,
 		}
 		for c := range s.watchChans {
@@ -340,8 +341,8 @@ func (s *GRPCService) Delete(ctx context.Context, req *pbkvs.DeleteRequest) (*em
 	return resp, nil
 }
 
-func (s *GRPCService) Watch(req *empty.Empty, server pbkvs.KVS_WatchServer) error {
-	chans := make(chan pbkvs.WatchResponse)
+func (s *GRPCService) Watch(req *empty.Empty, server protobuf.KVS_WatchServer) error {
+	chans := make(chan protobuf.WatchResponse)
 
 	s.watchMutex.Lock()
 	s.watchChans[chans] = struct{}{}
@@ -364,8 +365,8 @@ func (s *GRPCService) Watch(req *empty.Empty, server pbkvs.KVS_WatchServer) erro
 	return nil
 }
 
-func (s *GRPCService) Metrics(ctx context.Context, req *empty.Empty) (*pbkvs.MetricsResponse, error) {
-	resp := &pbkvs.MetricsResponse{}
+func (s *GRPCService) Metrics(ctx context.Context, req *empty.Empty) (*protobuf.MetricsResponse, error) {
+	resp := &protobuf.MetricsResponse{}
 
 	var err error
 

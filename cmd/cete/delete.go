@@ -17,34 +17,33 @@ package main
 import (
 	"errors"
 
-	"github.com/mosuka/cete/kvs"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/client"
+	"github.com/mosuka/cete/protobuf"
 	"github.com/urfave/cli"
 )
 
-func execDelete(c *cli.Context) error {
-	grpcAddr := c.String("grpc-addr")
+func execDelete(ctx *cli.Context) error {
+	grpcAddr := ctx.String("grpc-addr")
 
-	key := c.Args().Get(0)
+	key := ctx.Args().Get(0)
 	if key == "" {
 		err := errors.New("key argument must be set")
 		return err
 	}
 
-	req := &pbkvs.DeleteRequest{
+	req := &protobuf.DeleteRequest{
 		Key: key,
 	}
 
-	client, err := kvs.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClient(grpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = c.Close()
 	}()
 
-	err = client.Delete(req)
-	if err != nil {
+	if err = c.Delete(req); err != nil {
 		return err
 	}
 

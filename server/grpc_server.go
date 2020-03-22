@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvs
+package server
 
 import (
 	"math"
@@ -21,14 +21,14 @@ import (
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/mosuka/cete/metric"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 type GRPCServer struct {
 	address  string
-	service  pbkvs.KVSServer
+	service  protobuf.KVSServer
 	server   *grpc.Server
 	listener net.Listener
 
@@ -61,7 +61,7 @@ func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (
 		return nil, err
 	}
 
-	pbkvs.RegisterKVSServer(server, service)
+	protobuf.RegisterKVSServer(server, service)
 
 	// Initialize all metrics.
 	metric.GrpcMetrics.InitializeMetrics(server)

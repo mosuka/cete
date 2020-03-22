@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvs
+package storage
 
 import (
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
-	ceteerrors "github.com/mosuka/cete/errors"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/errors"
+	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 )
 
@@ -82,7 +82,7 @@ func (b *KVS) Get(key string) ([]byte, error) {
 		return nil
 	}); err == badger.ErrKeyNotFound {
 		b.logger.Debug("not found", zap.String("key", key), zap.Error(err))
-		return nil, ceteerrors.ErrNotFound
+		return nil, errors.ErrNotFound
 	} else if err != nil {
 		b.logger.Error("failed to get value", zap.String("key", key), zap.Error(err))
 		return nil, err
@@ -130,8 +130,8 @@ func (b *KVS) Delete(key string) error {
 	return nil
 }
 
-func (b *KVS) SnapshotItems() <-chan *pbkvs.KeyValuePair {
-	ch := make(chan *pbkvs.KeyValuePair, 1024)
+func (b *KVS) SnapshotItems() <-chan *protobuf.KeyValuePair {
+	ch := make(chan *protobuf.KeyValuePair, 1024)
 
 	go func() {
 		start := time.Now()
@@ -159,7 +159,7 @@ func (b *KVS) SnapshotItems() <-chan *pbkvs.KeyValuePair {
 					return err
 				}
 
-				ch <- &pbkvs.KeyValuePair{
+				ch <- &protobuf.KeyValuePair{
 					Key:   key,
 					Value: append([]byte{}, value...),
 				}

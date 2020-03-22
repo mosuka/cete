@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Minoru Osuka
+// Copyright (c) 2020 Minoru Osuka
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvs
+package server
 
 import (
 	"context"
@@ -21,21 +21,22 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/marshaler"
+	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 func responseFilter(ctx context.Context, w http.ResponseWriter, resp proto.Message) error {
 	switch resp.(type) {
-	case *pbkvs.GetResponse:
-		if r, ok := resp.(*pbkvs.GetResponse); ok {
+	case *protobuf.GetResponse:
+		if r, ok := resp.(*protobuf.GetResponse); ok {
 			w.Header().Set("Content-Type", http.DetectContentType(r.Value))
 		}
-	case *pbkvs.MetricsResponse:
+	case *protobuf.MetricsResponse:
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	default:
-		w.Header().Set("Content-Type", DefaultContentType)
+		w.Header().Set("Content-Type", marshaler.DefaultContentType)
 	}
 
 	return nil
@@ -57,12 +58,12 @@ func NewGRPCGateway(grpcGatewayAddr string, grpcAddr string, logger *zap.Logger)
 	ctx, cancel := context.WithCancel(baseCtx)
 
 	mux := runtime.NewServeMux(
-		runtime.WithMarshalerOption(runtime.MIMEWildcard, new(CeteMarshaler)),
+		runtime.WithMarshalerOption(runtime.MIMEWildcard, new(marshaler.CeteMarshaler)),
 		runtime.WithForwardResponseOption(responseFilter),
 	)
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 
-	err := pbkvs.RegisterKVSHandlerFromEndpoint(ctx, mux, grpcAddr, opts)
+	err := protobuf.RegisterKVSHandlerFromEndpoint(ctx, mux, grpcAddr, opts)
 	if err != nil {
 		logger.Error("failed to register KVS handler from endpoint", zap.Error(err))
 		return nil, err
