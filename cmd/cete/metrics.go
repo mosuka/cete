@@ -16,24 +16,24 @@ package main
 
 import (
 	"fmt"
+	"github.com/mosuka/cete/client"
 	"os"
 
-	"github.com/mosuka/cete/kvs"
 	"github.com/urfave/cli"
 )
 
-func execMetrics(c *cli.Context) error {
-	grpcAddr := c.String("grpc-addr")
+func execMetrics(ctx *cli.Context) error {
+	grpcAddr := ctx.String("grpc-addr")
 
-	client, err := kvs.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClient(grpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = c.Close()
 	}()
 
-	resp, err := client.Metrics()
+	resp, err := c.Metrics()
 	if err != nil {
 		return err
 	}

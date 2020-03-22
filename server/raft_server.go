@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvs
+package server
 
 import (
 	"io/ioutil"
@@ -27,9 +27,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/raft"
-	ceteerrors "github.com/mosuka/cete/errors"
+	"github.com/mosuka/cete/client"
+	"github.com/mosuka/cete/errors"
+	"github.com/mosuka/cete/marshaler"
 	"github.com/mosuka/cete/protobuf"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"go.uber.org/zap"
 )
 
@@ -53,7 +54,7 @@ type RaftServer struct {
 	updateNodeDoneCh chan struct{}
 	updateNodeMutex  sync.RWMutex
 
-	peerClients map[string]*GRPCClient
+	peerClients map[string]*client.GRPCClient
 }
 
 func NewRaftServer(nodeId string, bindAddr string, dataDir string, bootstrap bool, logger *zap.Logger) (*RaftServer, error) {
@@ -72,7 +73,7 @@ func NewRaftServer(nodeId string, bindAddr string, dataDir string, bootstrap boo
 		fsm:       fsm,
 		logger:    logger,
 
-		peerClients: make(map[string]*GRPCClient, 0),
+		peerClients: make(map[string]*client.GRPCClient, 0),
 	}, nil
 }
 
@@ -200,7 +201,7 @@ func (s *RaftServer) startUpdateNode(checkInterval time.Duration) {
 
 	timeout := 60 * time.Second
 	if err := s.WaitForDetectLeader(timeout); err != nil {
-		if err == ceteerrors.ErrTimeout {
+		if err == errors.ErrTimeout {
 			s.logger.Error("leader detection timed out", zap.Duration("timeout", timeout), zap.Error(err))
 		} else {
 			s.logger.Error("failed to detect leader", zap.Error(err))
@@ -257,7 +258,7 @@ func (s *RaftServer) startUpdateCluster(checkInterval time.Duration) {
 
 	timeout := 60 * time.Second
 	if err := s.WaitForDetectLeader(timeout); err != nil {
-		if err == ceteerrors.ErrTimeout {
+		if err == errors.ErrTimeout {
 			s.logger.Error("leader detection timed out", zap.Duration("timeout", timeout), zap.Error(err))
 		} else {
 			s.logger.Error("failed to detect leader", zap.Error(err))
@@ -366,10 +367,10 @@ func (s *RaftServer) stopUpdateCluster() {
 
 	s.updateClusterMutex.Lock()
 	for id, client := range s.peerClients {
-		s.logger.Info("close peer client", zap.String("id", id), zap.String("addr", client.conn.Target()))
+		s.logger.Info("close peer client", zap.String("id", id), zap.String("addr", client.Target()))
 		err := client.Close()
 		if err != nil {
-			s.logger.Info("failed to close peer client", zap.String("id", id), zap.String("addr", client.conn.Target()), zap.Error(err))
+			s.logger.Info("failed to close peer client", zap.String("id", id), zap.String("addr", client.Target()), zap.Error(err))
 		}
 	}
 	s.updateClusterMutex.Unlock()
@@ -399,7 +400,7 @@ func (s *RaftServer) LeaderAddress(timeout time.Duration) (raft.ServerAddress, e
 				return leaderAddr, nil
 			}
 		case <-timer.C:
-			err := ceteerrors.ErrTimeout
+			err := errors.ErrTimeout
 			s.logger.Error("failed to detect leader address", zap.Error(err))
 			return "", err
 		}
@@ -427,7 +428,7 @@ func (s *RaftServer) LeaderID(timeout time.Duration) (raft.ServerID, error) {
 		}
 	}
 
-	err = ceteerrors.ErrNotFoundLeader
+	err = errors.ErrNotFoundLeader
 	s.logger.Error("failed to detect leader ID", zap.Error(err))
 	return "", err
 }
@@ -466,16 +467,16 @@ func (s *RaftServer) Exist(id string) (bool, error) {
 	return exist, nil
 }
 
-func (s *RaftServer) join(req *pbkvs.JoinRequest) error {
+func (s *RaftServer) join(req *protobuf.JoinRequest) error {
 	nodeAny := &any.Any{}
-	err := protobuf.UnmarshalAny(req, nodeAny)
+	err := marshaler.UnmarshalAny(req, nodeAny)
 	if err != nil {
 		s.logger.Error("failed to unmarshal request to the command data", zap.Any("req", req), zap.Error(err))
 		return err
 	}
 
-	c := &pbkvs.KVSCommand{
-		Type: pbkvs.KVSCommand_JOIN,
+	c := &protobuf.KVSCommand{
+		Type: protobuf.KVSCommand_JOIN,
 		Data: nodeAny,
 	}
 
@@ -494,7 +495,7 @@ func (s *RaftServer) join(req *pbkvs.JoinRequest) error {
 	return nil
 }
 
-func (s *RaftServer) Join(req *pbkvs.JoinRequest) error {
+func (s *RaftServer) Join(req *protobuf.JoinRequest) error {
 	nodeExists, err := s.Exist(req.Id)
 	if err != nil {
 		return err
@@ -516,22 +517,22 @@ func (s *RaftServer) Join(req *pbkvs.JoinRequest) error {
 	}
 
 	if nodeExists {
-		return ceteerrors.ErrNodeAlreadyExists
+		return errors.ErrNodeAlreadyExists
 	} else {
 		return nil
 	}
 }
 
-func (s *RaftServer) leave(req *pbkvs.LeaveRequest) error {
+func (s *RaftServer) leave(req *protobuf.LeaveRequest) error {
 	nodeAny := &any.Any{}
-	err := protobuf.UnmarshalAny(req, nodeAny)
+	err := marshaler.UnmarshalAny(req, nodeAny)
 	if err != nil {
 		s.logger.Error("failed to unmarshal request to the command data", zap.Any("req", req), zap.Error(err))
 		return err
 	}
 
-	c := &pbkvs.KVSCommand{
-		Type: pbkvs.KVSCommand_LEAVE,
+	c := &protobuf.KVSCommand{
+		Type: protobuf.KVSCommand_LEAVE,
 		Data: nodeAny,
 	}
 
@@ -550,7 +551,7 @@ func (s *RaftServer) leave(req *pbkvs.LeaveRequest) error {
 	return nil
 }
 
-func (s *RaftServer) Leave(req *pbkvs.LeaveRequest) error {
+func (s *RaftServer) Leave(req *protobuf.LeaveRequest) error {
 	nodeExists, err := s.Exist(req.Id)
 	if err != nil {
 		return err
@@ -574,14 +575,14 @@ func (s *RaftServer) Leave(req *pbkvs.LeaveRequest) error {
 	return nil
 }
 
-func (s *RaftServer) Node() (*pbkvs.NodeResponse, error) {
+func (s *RaftServer) Node() (*protobuf.NodeResponse, error) {
 	cf := s.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
 		s.logger.Error("failed to get Raft configuration", zap.Error(err))
 		return nil, err
 	}
 
-	node := &pbkvs.Node{}
+	node := &protobuf.Node{}
 	for _, server := range cf.Configuration().Servers {
 		if server.ID == raft.ServerID(s.nodeId) {
 			node.BindAddr = string(server.Address)
@@ -594,19 +595,19 @@ func (s *RaftServer) Node() (*pbkvs.NodeResponse, error) {
 		}
 	}
 
-	return &pbkvs.NodeResponse{
+	return &protobuf.NodeResponse{
 		Node: node,
 	}, nil
 }
 
-func (s *RaftServer) Cluster() (*pbkvs.ClusterResponse, error) {
+func (s *RaftServer) Cluster() (*protobuf.ClusterResponse, error) {
 	cf := s.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
 		s.logger.Error("failed to get Raft configuration", zap.Error(err))
 		return nil, err
 	}
 
-	nodes := make(map[string]*pbkvs.Node, 0)
+	nodes := make(map[string]*protobuf.Node, 0)
 	for _, server := range cf.Configuration().Servers {
 		if server.ID == raft.ServerID(s.nodeId) {
 			if resp, err := s.Node(); err != nil {
@@ -616,11 +617,11 @@ func (s *RaftServer) Cluster() (*pbkvs.ClusterResponse, error) {
 				nodes[string(server.ID)] = resp.Node
 			}
 		} else {
-			node := &pbkvs.Node{}
+			node := &protobuf.Node{}
 
 			if metadata := s.fsm.getMetadata(string(server.ID)); metadata != nil {
 				grpcAddr := metadata.GrpcAddr
-				if client, err := NewGRPCClient(grpcAddr); err != nil {
+				if client, err := client.NewGRPCClient(grpcAddr); err != nil {
 					s.logger.Error("failed to create client", zap.String("addr", grpcAddr), zap.Error(err))
 					node.State = raft.Shutdown.String()
 				} else {
@@ -643,7 +644,7 @@ func (s *RaftServer) Cluster() (*pbkvs.ClusterResponse, error) {
 		}
 	}
 
-	return &pbkvs.ClusterResponse{
+	return &protobuf.ClusterResponse{
 		Nodes: nodes,
 	}, nil
 }
@@ -657,29 +658,29 @@ func (s *RaftServer) Snapshot() error {
 	return nil
 }
 
-func (s *RaftServer) Get(req *pbkvs.GetRequest) (*pbkvs.GetResponse, error) {
+func (s *RaftServer) Get(req *protobuf.GetRequest) (*protobuf.GetResponse, error) {
 	value, err := s.fsm.Get(req.Key)
 	if err != nil {
 		s.logger.Error("failed to get", zap.Any("key", req.Key), zap.Error(err))
 		return nil, err
 	}
 
-	resp := &pbkvs.GetResponse{
+	resp := &protobuf.GetResponse{
 		Value: value,
 	}
 
 	return resp, nil
 }
 
-func (s *RaftServer) Set(req *pbkvs.PutRequest) error {
+func (s *RaftServer) Set(req *protobuf.PutRequest) error {
 	kvpAny := &any.Any{}
-	if err := protobuf.UnmarshalAny(req, kvpAny); err != nil {
+	if err := marshaler.UnmarshalAny(req, kvpAny); err != nil {
 		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Key), zap.Error(err))
 		return err
 	}
 
-	c := &pbkvs.KVSCommand{
-		Type: pbkvs.KVSCommand_PUT,
+	c := &protobuf.KVSCommand{
+		Type: protobuf.KVSCommand_PUT,
 		Data: kvpAny,
 	}
 
@@ -697,15 +698,15 @@ func (s *RaftServer) Set(req *pbkvs.PutRequest) error {
 	return nil
 }
 
-func (s *RaftServer) Delete(req *pbkvs.DeleteRequest) error {
+func (s *RaftServer) Delete(req *protobuf.DeleteRequest) error {
 	kvpAny := &any.Any{}
-	if err := protobuf.UnmarshalAny(req, kvpAny); err != nil {
+	if err := marshaler.UnmarshalAny(req, kvpAny); err != nil {
 		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Key), zap.Error(err))
 		return err
 	}
 
-	c := &pbkvs.KVSCommand{
-		Type: pbkvs.KVSCommand_DELETE,
+	c := &protobuf.KVSCommand{
+		Type: protobuf.KVSCommand_DELETE,
 		Data: kvpAny,
 	}
 

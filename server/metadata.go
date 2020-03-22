@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvs
+package server
 
 type Metadata struct {
 	GrpcAddr string

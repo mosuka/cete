@@ -19,41 +19,41 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mosuka/cete/kvs"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/client"
+	"github.com/mosuka/cete/protobuf"
 	"github.com/urfave/cli"
 )
 
-func execGet(c *cli.Context) error {
-	grpcAddr := c.String("grpc-addr")
+func execGet(ctx *cli.Context) error {
+	grpcAddr := ctx.String("grpc-addr")
 
-	key := c.Args().Get(0)
+	key := ctx.Args().Get(0)
 	if key == "" {
 		err := errors.New("key argument must be set")
 		return err
 	}
 
-	req := &pbkvs.GetRequest{
+	req := &protobuf.GetRequest{
 		Key: key,
 	}
 
-	client, err := kvs.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClient(grpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = c.Close()
 	}()
 
-	resp, err := client.Get(req)
+	resp, err := c.Get(req)
 	if err != nil {
 		return err
 	}
 
 	// key does not exist
-	if resp.Value == nil {
-		return nil
-	}
+	//if resp.Value == nil {
+	//	return nil
+	//}
 
 	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s", string(resp.Value)))
 

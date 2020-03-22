@@ -15,22 +15,22 @@
 package main
 
 import (
-	"github.com/mosuka/cete/kvs"
+	"github.com/mosuka/cete/client"
 	"github.com/urfave/cli"
 )
 
-func execSnapshot(c *cli.Context) error {
-	grpcAddr := c.String("grpc-addr")
+func execSnapshot(ctx *cli.Context) error {
+	grpcAddr := ctx.String("grpc-addr")
 
-	client, err := kvs.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClient(grpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = c.Close()
 	}()
 
-	err = client.Snapshot()
+	err = c.Snapshot()
 	if err != nil {
 		return err
 	}

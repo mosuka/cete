@@ -19,22 +19,22 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mosuka/cete/kvs"
+	"github.com/mosuka/cete/client"
 	"github.com/urfave/cli"
 )
 
-func execNode(c *cli.Context) error {
-	grpcAddr := c.String("grpc-addr")
+func execNode(ctx *cli.Context) error {
+	grpcAddr := ctx.String("grpc-addr")
 
-	client, err := kvs.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClient(grpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = c.Close()
 	}()
 
-	resp, err := client.Node()
+	resp, err := c.Node()
 	if err != nil {
 		return err
 	}

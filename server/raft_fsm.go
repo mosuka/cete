@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kvs
+package server
 
 import (
 	"errors"
@@ -24,15 +24,16 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
+	"github.com/mosuka/cete/marshaler"
 	"github.com/mosuka/cete/protobuf"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/storage"
 	"go.uber.org/zap"
 )
 
 type RaftFSM struct {
 	logger *zap.Logger
 
-	kvs        *KVS
+	kvs        *storage.KVS
 	metadata   map[string]*Metadata
 	nodesMutex sync.RWMutex
 }
@@ -44,7 +45,7 @@ func NewRaftFSM(path string, logger *zap.Logger) (*RaftFSM, error) {
 		return nil, err
 	}
 
-	kvs, err := NewKVS(path, path, logger)
+	kvs, err := storage.NewKVS(path, path, logger)
 	if err != nil {
 		logger.Error("failed to create key value store", zap.String("path", path), zap.Error(err))
 		return nil, err
@@ -135,7 +136,7 @@ func (f *RaftFSM) applyLeave(nodeId string) interface{} {
 }
 
 func (f *RaftFSM) Apply(l *raft.Log) interface{} {
-	var c pbkvs.KVSCommand
+	var c protobuf.KVSCommand
 	err := proto.Unmarshal(l.Data, &c)
 	if err != nil {
 		f.logger.Error("failed to unmarshal message bytes to KVS command", zap.Error(err))
@@ -143,8 +144,8 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 	}
 
 	switch c.Type {
-	case pbkvs.KVSCommand_JOIN:
-		joinRequestInstance, err := protobuf.MarshalAny(c.Data)
+	case protobuf.KVSCommand_JOIN:
+		joinRequestInstance, err := marshaler.MarshalAny(c.Data)
 		if err != nil {
 			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
@@ -154,11 +155,11 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
-		joinRequest := joinRequestInstance.(*pbkvs.JoinRequest)
+		joinRequest := joinRequestInstance.(*protobuf.JoinRequest)
 
 		return f.applyJoin(joinRequest.Id, joinRequest.GrpcAddr, joinRequest.HttpAddr)
-	case pbkvs.KVSCommand_LEAVE:
-		leaveRequestInstance, err := protobuf.MarshalAny(c.Data)
+	case protobuf.KVSCommand_LEAVE:
+		leaveRequestInstance, err := marshaler.MarshalAny(c.Data)
 		if err != nil {
 			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
@@ -168,11 +169,11 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
-		leaveRequest := *leaveRequestInstance.(*pbkvs.LeaveRequest)
+		leaveRequest := *leaveRequestInstance.(*protobuf.LeaveRequest)
 
 		return f.applyLeave(leaveRequest.Id)
-	case pbkvs.KVSCommand_PUT:
-		putRequestInstance, err := protobuf.MarshalAny(c.Data)
+	case protobuf.KVSCommand_PUT:
+		putRequestInstance, err := marshaler.MarshalAny(c.Data)
 		if err != nil {
 			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
@@ -182,11 +183,11 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
-		putRequest := *putRequestInstance.(*pbkvs.PutRequest)
+		putRequest := *putRequestInstance.(*protobuf.PutRequest)
 
 		return f.applySet(putRequest.Key, putRequest.Value)
-	case pbkvs.KVSCommand_DELETE:
-		deleteRequestInstance, err := protobuf.MarshalAny(c.Data)
+	case protobuf.KVSCommand_DELETE:
+		deleteRequestInstance, err := marshaler.MarshalAny(c.Data)
 		if err != nil {
 			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
@@ -196,7 +197,7 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
 			return err
 		}
-		deleteRequest := *deleteRequestInstance.(*pbkvs.DeleteRequest)
+		deleteRequest := *deleteRequestInstance.(*protobuf.DeleteRequest)
 
 		return f.applyDelete(deleteRequest.Key)
 	default:
@@ -235,7 +236,7 @@ func (f *RaftFSM) Restore(rc io.ReadCloser) error {
 
 	buff := proto.NewBuffer(data)
 	for {
-		kvp := &pbkvs.KeyValuePair{}
+		kvp := &protobuf.KeyValuePair{}
 		err = buff.DecodeMessage(kvp)
 		if err == io.ErrUnexpectedEOF {
 			f.logger.Debug("reached the EOF", zap.Error(err))
@@ -265,7 +266,7 @@ func (f *RaftFSM) Restore(rc io.ReadCloser) error {
 // ---------------------
 
 type KVSFSMSnapshot struct {
-	kvs    *KVS
+	kvs    *storage.KVS
 	logger *zap.Logger
 }
 

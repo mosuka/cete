@@ -22,25 +22,25 @@ import (
 	"syscall"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/mosuka/cete/kvs"
+	"github.com/mosuka/cete/client"
+	"github.com/mosuka/cete/marshaler"
 	"github.com/mosuka/cete/protobuf"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
 	"github.com/urfave/cli"
 )
 
-func execWatch(c *cli.Context) error {
-	grpcAddr := c.String("grpc-addr")
+func execWatch(ctx *cli.Context) error {
+	grpcAddr := ctx.String("grpc-addr")
 
-	client, err := kvs.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClient(grpcAddr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = client.Close()
+		_ = c.Close()
 	}()
 
 	req := &empty.Empty{}
-	watchClient, err := client.Watch(req)
+	watchClient, err := c.Watch(req)
 	if err != nil {
 		return err
 	}
@@ -56,51 +56,51 @@ func execWatch(c *cli.Context) error {
 			}
 
 			switch resp.Event {
-			case pbkvs.WatchResponse_JOIN:
-				joinRequest := &pbkvs.JoinRequest{}
-				if joinRequestInstance, err := protobuf.MarshalAny(resp.Data); err != nil {
+			case protobuf.WatchResponse_JOIN:
+				joinRequest := &protobuf.JoinRequest{}
+				if joinRequestInstance, err := marshaler.MarshalAny(resp.Data); err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.String(), err))
 				} else {
 					if joinRequestInstance == nil {
 						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.String()))
 					} else {
-						joinRequest = joinRequestInstance.(*pbkvs.JoinRequest)
+						joinRequest = joinRequestInstance.(*protobuf.JoinRequest)
 					}
 				}
 				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.String(), joinRequest))
-			case pbkvs.WatchResponse_LEAVE:
-				leaveRequest := &pbkvs.LeaveRequest{}
-				if leaveRequestInstance, err := protobuf.MarshalAny(resp.Data); err != nil {
+			case protobuf.WatchResponse_LEAVE:
+				leaveRequest := &protobuf.LeaveRequest{}
+				if leaveRequestInstance, err := marshaler.MarshalAny(resp.Data); err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.String(), err))
 				} else {
 					if leaveRequestInstance == nil {
 						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.String()))
 					} else {
-						leaveRequest = leaveRequestInstance.(*pbkvs.LeaveRequest)
+						leaveRequest = leaveRequestInstance.(*protobuf.LeaveRequest)
 					}
 				}
 				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.String(), leaveRequest))
-			case pbkvs.WatchResponse_PUT:
-				putRequest := &pbkvs.PutRequest{}
-				if putRequestInstance, err := protobuf.MarshalAny(resp.Data); err != nil {
+			case protobuf.WatchResponse_PUT:
+				putRequest := &protobuf.PutRequest{}
+				if putRequestInstance, err := marshaler.MarshalAny(resp.Data); err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.String(), err))
 				} else {
 					if putRequestInstance == nil {
 						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.String()))
 					} else {
-						putRequest = putRequestInstance.(*pbkvs.PutRequest)
+						putRequest = putRequestInstance.(*protobuf.PutRequest)
 					}
 				}
 				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.String(), putRequest))
-			case pbkvs.WatchResponse_DELETE:
-				deleteRequest := &pbkvs.DeleteRequest{}
-				if deleteRequestInstance, err := protobuf.MarshalAny(resp.Data); err != nil {
+			case protobuf.WatchResponse_DELETE:
+				deleteRequest := &protobuf.DeleteRequest{}
+				if deleteRequestInstance, err := marshaler.MarshalAny(resp.Data); err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.String(), err))
 				} else {
 					if deleteRequestInstance == nil {
 						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.String()))
 					} else {
-						deleteRequest = deleteRequestInstance.(*pbkvs.DeleteRequest)
+						deleteRequest = deleteRequestInstance.(*protobuf.DeleteRequest)
 					}
 				}
 				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.String(), deleteRequest))

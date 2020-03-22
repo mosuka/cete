@@ -12,27 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protobuf
+package marshaler
 
 import (
 	"encoding/json"
 	"reflect"
 
 	"github.com/golang/protobuf/ptypes/any"
-	pbkvs "github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/protobuf"
 	"github.com/mosuka/cete/registry"
 )
 
 func init() {
 	registry.RegisterType("map[string]interface {}", reflect.TypeOf((map[string]interface{})(nil)))
 
-	registry.RegisterType("kvs.JoinRequest", reflect.TypeOf(pbkvs.JoinRequest{}))
-	registry.RegisterType("kvs.LeaveRequest", reflect.TypeOf(pbkvs.LeaveRequest{}))
-	registry.RegisterType("kvs.GetRequest", reflect.TypeOf(pbkvs.GetRequest{}))
-	registry.RegisterType("kvs.PutRequest", reflect.TypeOf(pbkvs.PutRequest{}))
-	registry.RegisterType("kvs.DeleteRequest", reflect.TypeOf(pbkvs.DeleteRequest{}))
-	registry.RegisterType("kvs.KeyValuePair", reflect.TypeOf(pbkvs.KeyValuePair{}))
-	registry.RegisterType("kvs.Node", reflect.TypeOf(pbkvs.Node{}))
+	registry.RegisterType("protobuf.JoinRequest", reflect.TypeOf(protobuf.JoinRequest{}))
+	registry.RegisterType("protobuf.LeaveRequest", reflect.TypeOf(protobuf.LeaveRequest{}))
+	registry.RegisterType("protobuf.GetRequest", reflect.TypeOf(protobuf.GetRequest{}))
+	registry.RegisterType("protobuf.PutRequest", reflect.TypeOf(protobuf.PutRequest{}))
+	registry.RegisterType("protobuf.DeleteRequest", reflect.TypeOf(protobuf.DeleteRequest{}))
+	registry.RegisterType("protobuf.KeyValuePair", reflect.TypeOf(protobuf.KeyValuePair{}))
+	registry.RegisterType("protobuf.Node", reflect.TypeOf(protobuf.Node{}))
 }
 
 func MarshalAny(message *any.Any) (interface{}, error) {
@@ -45,12 +45,12 @@ func MarshalAny(message *any.Any) (interface{}, error) {
 
 	instance := registry.TypeInstanceByName(typeUrl)
 
-	err := json.Unmarshal(value, instance)
-	if err != nil {
+	if err := json.Unmarshal(value, instance); err != nil {
 		return nil, err
+	} else {
+		return instance, nil
 	}
 
-	return instance, nil
 }
 
 func UnmarshalAny(instance interface{}, message *any.Any) error {
