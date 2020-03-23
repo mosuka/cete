@@ -38,7 +38,7 @@ func execSet(ctx *cli.Context) error {
 	}
 
 	// create PutRequest
-	req := &protobuf.PutRequest{
+	req := &protobuf.SetRequest{
 		Key:   key,
 		Value: []byte(value),
 	}
@@ -51,7 +51,7 @@ func execSet(ctx *cli.Context) error {
 		_ = c.Close()
 	}()
 
-	err = c.Put(req)
+	err = c.Set(req)
 	if err != nil {
 		return err
 	}

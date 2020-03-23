@@ -20,12 +20,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/hashicorp/raft"
 	"github.com/mosuka/cete/client"
 	"github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/marshaler"
 	"github.com/mosuka/cete/metric"
 	"github.com/mosuka/cete/protobuf"
 	"github.com/prometheus/common/expfmt"
@@ -40,6 +38,9 @@ type GRPCService struct {
 
 	watchMutex sync.RWMutex
 	watchChans map[chan protobuf.WatchResponse]struct{}
+
+	watchClusterStopCh chan struct{}
+	watchClusterDoneCh chan struct{}
 }
 
 func NewGRPCService(raftServer *RaftServer, logger *zap.Logger) (*GRPCService, error) {
@@ -48,7 +49,78 @@ func NewGRPCService(raftServer *RaftServer, logger *zap.Logger) (*GRPCService, e
 		logger:     logger,
 
 		watchChans: make(map[chan protobuf.WatchResponse]struct{}),
+
+		watchClusterStopCh: make(chan struct{}),
+		watchClusterDoneCh: make(chan struct{}),
 	}, nil
+}
+
+func (s *GRPCService) Start() error {
+	go func() {
+		s.startWatchCluster(500 * time.Millisecond)
+	}()
+
+	s.logger.Info("gRPC service started")
+	return nil
+}
+
+func (s *GRPCService) Stop() error {
+	s.stopWatchCluster()
+
+	s.logger.Info("gRPC service stopped")
+	return nil
+}
+
+func (s *GRPCService) startWatchCluster(checkInterval time.Duration) {
+	s.logger.Info("start to update cluster info")
+
+	defer func() {
+		close(s.watchClusterDoneCh)
+	}()
+
+	ticker := time.NewTicker(checkInterval)
+	defer ticker.Stop()
+
+	timeout := 60 * time.Second
+	if err := s.raftServer.WaitForDetectLeader(timeout); err != nil {
+		if err == errors.ErrTimeout {
+			s.logger.Error("leader detection timed out", zap.Duration("timeout", timeout), zap.Error(err))
+		} else {
+			s.logger.Error("failed to detect leader", zap.Error(err))
+		}
+	}
+
+	for {
+		select {
+		case <-s.watchClusterStopCh:
+			s.logger.Info("received a request to stop updating a cluster")
+			return
+		case <-s.raftServer.raft.LeaderCh():
+			s.logger.Info("became a leader", zap.String("leaderAddr", string(s.raftServer.raft.Leader())))
+		case event := <-s.raftServer.applyCh:
+			s.logger.Info("receive an event", zap.Any("event", event))
+			watchResp := &protobuf.WatchResponse{
+				Event: event,
+			}
+			for c := range s.watchChans {
+				c <- *watchResp
+			}
+			s.logger.Info("send an event", zap.Any("event", event))
+		case <-ticker.C:
+			s.logger.Debug("tick")
+		}
+	}
+}
+
+func (s *GRPCService) stopWatchCluster() {
+	if s.watchClusterStopCh != nil {
+		s.logger.Info("send a request to stop updating a cluster")
+		close(s.watchClusterStopCh)
+	}
+
+	s.logger.Info("wait for the cluster watching to stop")
+	<-s.watchClusterDoneCh
+	s.logger.Info("the cluster watching has been stopped")
 }
 
 func (s *GRPCService) Join(ctx context.Context, req *protobuf.JoinRequest) (*empty.Empty, error) {
@@ -56,10 +128,23 @@ func (s *GRPCService) Join(ctx context.Context, req *protobuf.JoinRequest) (*emp
 
 	if s.raftServer.raft.State() != raft.Leader {
 		// forward to leader node
-		timeout := 1 * time.Second
-		leaderAddr, err := s.raftServer.LeaderAddress(timeout)
+		clusterResp, err := s.Cluster(ctx, &empty.Empty{})
 		if err != nil {
-			s.logger.Error("failed to get leader address", zap.Duration("timeout", timeout), zap.Error(err))
+			s.logger.Error("failed to get cluster info", zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		leaderAddr := ""
+		for _, node := range clusterResp.Nodes {
+			if node.State == raft.Leader.String() {
+				leaderAddr = node.Metadata.GrpcAddr
+				break
+			}
+		}
+
+		if leaderAddr == "" {
+			err = errors.ErrNotFoundLeader
+			s.logger.Error("failed to get leader gRPC address", zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -84,7 +169,7 @@ func (s *GRPCService) Join(ctx context.Context, req *protobuf.JoinRequest) (*emp
 		return resp, nil
 	}
 
-	err := s.raftServer.Join(req)
+	err := s.raftServer.Join(req.Id, req.Node)
 	if err != nil {
 		switch err {
 		case errors.ErrNodeAlreadyExists:
@@ -92,19 +177,6 @@ func (s *GRPCService) Join(ctx context.Context, req *protobuf.JoinRequest) (*emp
 		default:
 			s.logger.Error("failed to join node to the cluster", zap.String("id", req.Id), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
-		}
-	} else {
-		joinReqAny := &any.Any{}
-		if err := marshaler.UnmarshalAny(req, joinReqAny); err != nil {
-			s.logger.Error("failed to unmarshal request to the watch data", zap.String("id", req.Id), zap.String("err", err.Error()))
-		} else {
-			watchResp := &protobuf.WatchResponse{
-				Event: protobuf.WatchResponse_JOIN,
-				Data:  joinReqAny,
-			}
-			for c := range s.watchChans {
-				c <- *watchResp
-			}
 		}
 	}
 
@@ -116,10 +188,23 @@ func (s *GRPCService) Leave(ctx context.Context, req *protobuf.LeaveRequest) (*e
 
 	if s.raftServer.raft.State() != raft.Leader {
 		// forward to leader node
-		timeout := 1 * time.Second
-		leaderAddr, err := s.raftServer.LeaderAddress(timeout)
+		clusterResp, err := s.Cluster(ctx, &empty.Empty{})
 		if err != nil {
-			s.logger.Error("failed to get leader address", zap.Duration("timeout", timeout), zap.Error(err))
+			s.logger.Error("failed to get cluster info", zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		leaderAddr := ""
+		for _, node := range clusterResp.Nodes {
+			if node.State == raft.Leader.String() {
+				leaderAddr = node.Metadata.GrpcAddr
+				break
+			}
+		}
+
+		if leaderAddr == "" {
+			err = errors.ErrNotFoundLeader
+			s.logger.Error("failed to get leader gRPC address", zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -144,24 +229,10 @@ func (s *GRPCService) Leave(ctx context.Context, req *protobuf.LeaveRequest) (*e
 		return resp, nil
 	}
 
-	err := s.raftServer.Leave(req)
+	err := s.raftServer.Leave(req.Id)
 	if err != nil {
 		s.logger.Error("failed to leave node from the cluster", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
-	}
-
-	// notify
-	leaveReqAny := &any.Any{}
-	if err := marshaler.UnmarshalAny(req, leaveReqAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
-	} else {
-		watchResp := &protobuf.WatchResponse{
-			Event: protobuf.WatchResponse_LEAVE,
-			Data:  leaveReqAny,
-		}
-		for c := range s.watchChans {
-			c <- *watchResp
-		}
 	}
 
 	return resp, nil
@@ -227,15 +298,28 @@ func (s *GRPCService) Get(ctx context.Context, req *protobuf.GetRequest) (*proto
 	return resp, nil
 }
 
-func (s *GRPCService) Put(ctx context.Context, req *protobuf.PutRequest) (*empty.Empty, error) {
+func (s *GRPCService) Set(ctx context.Context, req *protobuf.SetRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	if s.raftServer.raft.State() != raft.Leader {
 		// forward to leader node
-		timeout := 1 * time.Second
-		leaderAddr, err := s.raftServer.LeaderAddress(timeout)
+		clusterResp, err := s.Cluster(ctx, &empty.Empty{})
 		if err != nil {
-			s.logger.Error("failed to get leader address", zap.Duration("timeout", timeout), zap.Error(err))
+			s.logger.Error("failed to get cluster info", zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		leaderAddr := ""
+		for _, node := range clusterResp.Nodes {
+			if node.State == raft.Leader.String() {
+				leaderAddr = node.Metadata.GrpcAddr
+				break
+			}
+		}
+
+		if leaderAddr == "" {
+			err = errors.ErrNotFoundLeader
+			s.logger.Error("failed to get leader gRPC address", zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -251,7 +335,7 @@ func (s *GRPCService) Put(ctx context.Context, req *protobuf.PutRequest) (*empty
 			}
 		}()
 
-		err = c.Put(req)
+		err = c.Set(req)
 		if err != nil {
 			s.logger.Error("failed to forward request", zap.String("leaderAddr", string(leaderAddr)), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
@@ -260,25 +344,10 @@ func (s *GRPCService) Put(ctx context.Context, req *protobuf.PutRequest) (*empty
 		return resp, nil
 	}
 
-	// put value by key
 	err := s.raftServer.Set(req)
 	if err != nil {
 		s.logger.Error("failed to put data", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
-	}
-
-	// notify
-	putReqAny := &any.Any{}
-	if err := marshaler.UnmarshalAny(req, putReqAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the watch data", zap.Any("req", req), zap.String("err", err.Error()))
-	} else {
-		watchResp := &protobuf.WatchResponse{
-			Event: protobuf.WatchResponse_PUT,
-			Data:  putReqAny,
-		}
-		for c := range s.watchChans {
-			c <- *watchResp
-		}
 	}
 
 	return resp, nil
@@ -289,10 +358,23 @@ func (s *GRPCService) Delete(ctx context.Context, req *protobuf.DeleteRequest) (
 
 	if s.raftServer.raft.State() != raft.Leader {
 		// forward to leader node
-		timeout := 1 * time.Second
-		leaderAddr, err := s.raftServer.LeaderAddress(timeout)
+		clusterResp, err := s.Cluster(ctx, &empty.Empty{})
 		if err != nil {
-			s.logger.Error("failed to get leader address", zap.Duration("timeout", timeout), zap.Error(err))
+			s.logger.Error("failed to get cluster info", zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		leaderAddr := ""
+		for _, node := range clusterResp.Nodes {
+			if node.State == raft.Leader.String() {
+				leaderAddr = node.Metadata.GrpcAddr
+				break
+			}
+		}
+
+		if leaderAddr == "" {
+			err = errors.ErrNotFoundLeader
+			s.logger.Error("failed to get leader gRPC address", zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -317,25 +399,10 @@ func (s *GRPCService) Delete(ctx context.Context, req *protobuf.DeleteRequest) (
 		return resp, nil
 	}
 
-	// delete value by key
 	err := s.raftServer.Delete(req)
 	if err != nil {
 		s.logger.Error("failed to delete data", zap.String("key", req.Key), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
-	}
-
-	// notify
-	deleteReqAny := &any.Any{}
-	if err := marshaler.UnmarshalAny(req, deleteReqAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the watch data", zap.String("key", req.Key), zap.Error(err))
-	} else {
-		watchResp := &protobuf.WatchResponse{
-			Event: protobuf.WatchResponse_DELETE,
-			Data:  deleteReqAny,
-		}
-		for c := range s.watchChans {
-			c <- *watchResp
-		}
 	}
 
 	return resp, nil

@@ -34,8 +34,10 @@ type RaftFSM struct {
 	logger *zap.Logger
 
 	kvs        *storage.KVS
-	metadata   map[string]*Metadata
+	metadata   map[string]*protobuf.Metadata
 	nodesMutex sync.RWMutex
+
+	applyCh chan *protobuf.Event
 }
 
 func NewRaftFSM(path string, logger *zap.Logger) (*RaftFSM, error) {
@@ -54,16 +56,21 @@ func NewRaftFSM(path string, logger *zap.Logger) (*RaftFSM, error) {
 	return &RaftFSM{
 		logger:   logger,
 		kvs:      kvs,
-		metadata: make(map[string]*Metadata, 0),
+		metadata: make(map[string]*protobuf.Metadata, 0),
+		applyCh:  make(chan *protobuf.Event, 1024),
 	}, nil
 }
 
 func (f *RaftFSM) Close() error {
+	f.applyCh <- nil
+	f.logger.Info("apply channel has closed")
+
 	err := f.kvs.Close()
 	if err != nil {
 		f.logger.Error("failed to close key value store", zap.Error(err))
 		return err
 	}
+	f.logger.Info("KVS has closed")
 
 	return nil
 }
@@ -98,7 +105,7 @@ func (f *RaftFSM) applyDelete(key string) interface{} {
 	return nil
 }
 
-func (f *RaftFSM) getMetadata(id string) *Metadata {
+func (f *RaftFSM) getMetadata(id string) *protobuf.Metadata {
 	if metadata, exists := f.metadata[id]; exists {
 		return metadata
 	} else {
@@ -107,7 +114,7 @@ func (f *RaftFSM) getMetadata(id string) *Metadata {
 	}
 }
 
-func (f *RaftFSM) setMetadata(id string, metadata *Metadata) {
+func (f *RaftFSM) setMetadata(id string, metadata *protobuf.Metadata) {
 	f.nodesMutex.Lock()
 	f.metadata[id] = metadata
 	f.nodesMutex.Unlock()
@@ -123,86 +130,107 @@ func (f *RaftFSM) deleteMetadata(id string) {
 	f.nodesMutex.Unlock()
 }
 
-func (f *RaftFSM) applyJoin(nodeId string, grpcAddr string, httpAddr string) interface{} {
-	f.setMetadata(nodeId, &Metadata{GrpcAddr: grpcAddr, HttpAddr: httpAddr})
+func (f *RaftFSM) applySetMetadata(id string, metadata *protobuf.Metadata) interface{} {
+	f.logger.Debug("set metadata", zap.String("id", id), zap.Any("metadata", metadata))
+	f.setMetadata(id, metadata)
 
 	return nil
 }
 
-func (f *RaftFSM) applyLeave(nodeId string) interface{} {
+func (f *RaftFSM) applyDeleteMetadata(nodeId string) interface{} {
 	f.deleteMetadata(nodeId)
 
 	return nil
 }
 
 func (f *RaftFSM) Apply(l *raft.Log) interface{} {
-	var c protobuf.KVSCommand
-	err := proto.Unmarshal(l.Data, &c)
+	var event protobuf.Event
+	err := proto.Unmarshal(l.Data, &event)
 	if err != nil {
 		f.logger.Error("failed to unmarshal message bytes to KVS command", zap.Error(err))
 		return err
 	}
 
-	switch c.Type {
-	case protobuf.KVSCommand_JOIN:
-		joinRequestInstance, err := marshaler.MarshalAny(c.Data)
+	switch event.Type {
+	case protobuf.Event_Join:
+		data, err := marshaler.MarshalAny(event.Data)
 		if err != nil {
-			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", event.Type.String()), zap.Error(err))
 			return err
 		}
-		if joinRequestInstance == nil {
+		if data == nil {
 			err = errors.New("nil")
-			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
+			f.logger.Error("request is nil", zap.String("type", event.Type.String()), zap.Error(err))
 			return err
 		}
-		joinRequest := joinRequestInstance.(*protobuf.JoinRequest)
+		req := data.(*protobuf.SetMetadataRequest)
 
-		return f.applyJoin(joinRequest.Id, joinRequest.GrpcAddr, joinRequest.HttpAddr)
-	case protobuf.KVSCommand_LEAVE:
-		leaveRequestInstance, err := marshaler.MarshalAny(c.Data)
+		ret := f.applySetMetadata(req.Id, req.Metadata)
+		if ret == nil {
+			f.applyCh <- &event
+		}
+
+		return ret
+	case protobuf.Event_Leave:
+		data, err := marshaler.MarshalAny(event.Data)
 		if err != nil {
-			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", event.Type.String()), zap.Error(err))
 			return err
 		}
-		if leaveRequestInstance == nil {
+		if data == nil {
 			err = errors.New("nil")
-			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
+			f.logger.Error("request is nil", zap.String("type", event.Type.String()), zap.Error(err))
 			return err
 		}
-		leaveRequest := *leaveRequestInstance.(*protobuf.LeaveRequest)
+		req := *data.(*protobuf.DeleteMetadataRequest)
 
-		return f.applyLeave(leaveRequest.Id)
-	case protobuf.KVSCommand_PUT:
-		putRequestInstance, err := marshaler.MarshalAny(c.Data)
+		ret := f.applyDeleteMetadata(req.Id)
+		if ret == nil {
+			f.applyCh <- &event
+		}
+
+		return ret
+	case protobuf.Event_Set:
+		data, err := marshaler.MarshalAny(event.Data)
 		if err != nil {
-			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", event.Type.String()), zap.Error(err))
 			return err
 		}
-		if putRequestInstance == nil {
+		if data == nil {
 			err = errors.New("nil")
-			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
+			f.logger.Error("request is nil", zap.String("type", event.Type.String()), zap.Error(err))
 			return err
 		}
-		putRequest := *putRequestInstance.(*protobuf.PutRequest)
+		req := *data.(*protobuf.SetRequest)
 
-		return f.applySet(putRequest.Key, putRequest.Value)
-	case protobuf.KVSCommand_DELETE:
-		deleteRequestInstance, err := marshaler.MarshalAny(c.Data)
+		ret := f.applySet(req.Key, req.Value)
+		if ret == nil {
+			f.applyCh <- &event
+		}
+
+		return ret
+	case protobuf.Event_Delete:
+		data, err := marshaler.MarshalAny(event.Data)
 		if err != nil {
-			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", c.Type.String()), zap.Error(err))
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", event.Type.String()), zap.Error(err))
 			return err
 		}
-		if deleteRequestInstance == nil {
+		if data == nil {
 			err = errors.New("nil")
-			f.logger.Error("request is nil", zap.String("type", c.Type.String()), zap.Error(err))
+			f.logger.Error("request is nil", zap.String("type", event.Type.String()), zap.Error(err))
 			return err
 		}
-		deleteRequest := *deleteRequestInstance.(*protobuf.DeleteRequest)
+		req := *data.(*protobuf.DeleteRequest)
 
-		return f.applyDelete(deleteRequest.Key)
+		ret := f.applyDelete(req.Key)
+		if ret == nil {
+			f.applyCh <- &event
+		}
+
+		return ret
 	default:
 		err = errors.New("command type not support")
-		f.logger.Error("unsupported command", zap.String("type", c.Type.String()), zap.Error(err))
+		f.logger.Error("unsupported command", zap.String("type", event.Type.String()), zap.Error(err))
 		return err
 	}
 }

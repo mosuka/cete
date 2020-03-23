@@ -121,10 +121,14 @@ func execStart(ctx *cli.Context) error {
 
 	// join this node to the existing cluster
 	joinRequest := &protobuf.JoinRequest{
-		Id:       nodeId,
-		BindAddr: bindAddr,
-		GrpcAddr: grpcAddr,
-		HttpAddr: httpAddr,
+		Id: nodeId,
+		Node: &protobuf.Node{
+			BindAddr: bindAddr,
+			Metadata: &protobuf.Metadata{
+				GrpcAddr: grpcAddr,
+				HttpAddr: httpAddr,
+			},
+		},
 	}
 	if err = c.Join(joinRequest); err != nil {
 		logger.Error("failed to join node to the cluster", zap.Any("req", joinRequest), zap.Error(err))

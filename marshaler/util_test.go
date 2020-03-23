@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/mosuka/cete/protobuf/kvs"
+	"github.com/mosuka/cete/protobuf"
 )
 
 func TestMarshalAny(t *testing.T) {
@@ -45,10 +45,13 @@ func TestMarshalAny(t *testing.T) {
 	}
 
 	// test kvs.Node
-	node := &kvs.Node{
-		GrpcAddr: ":5050",
-		BindAddr: ":6060",
+	node := &protobuf.Node{
+		BindAddr: ":7000",
 		State:    "Leader",
+		Metadata: &protobuf.Metadata{
+			GrpcAddr: ":9000",
+			HttpAddr: ":8000",
+		},
 	}
 
 	nodeAny := &any.Any{}
@@ -63,7 +66,7 @@ func TestMarshalAny(t *testing.T) {
 		t.Errorf("expected content to see %s, saw %s", expectedType, actualType)
 	}
 
-	expectedValue = []byte(`{"bind_addr":":6060","grpc_addr":":5050","state":"Leader"}`)
+	expectedValue = []byte(`{"bind_addr":":7000","state":"Leader","metadata":{"grpc_addr":":9000","http_addr":":8000",}}`)
 	actualValue = nodeAny.Value
 	if !bytes.Equal(expectedValue, actualValue) {
 		t.Errorf("expected content to see %v, saw %v", expectedValue, actualValue)
@@ -95,23 +98,26 @@ func TestUnmarshalAny(t *testing.T) {
 
 	// raft.Node
 	dataAny = &any.Any{
-		TypeUrl: "kvs.Node",
-		Value:   []byte(`{"bind_addr":":6060","grpc_addr":":5050","state":"Leader"}`),
+		TypeUrl: "protobuf.Node",
+		Value:   []byte(`{"bind_addr":":7000","state":"Leader","metadata":{"grpc_addr":":9000","http_addr":":8000",}}`),
 	}
 
 	data, err = MarshalAny(dataAny)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
-	dataNode := data.(*kvs.Node)
+	node := data.(*protobuf.Node)
 
-	if dataNode.BindAddr != ":6060" {
-		t.Errorf("expected content to see %v, saw %v", ":6060", dataNode.BindAddr)
+	if node.BindAddr != ":6060" {
+		t.Errorf("expected content to see %v, saw %v", ":6060", node.BindAddr)
 	}
-	if dataNode.GrpcAddr != ":5050" {
-		t.Errorf("expected content to see %v, saw %v", ":5050", dataNode.BindAddr)
+	if node.Metadata.GrpcAddr != ":9000" {
+		t.Errorf("expected content to see %v, saw %v", ":5050", node.BindAddr)
 	}
-	if dataNode.State != "Leader" {
-		t.Errorf("expected content to see %v, saw %v", "Leader", dataNode.State)
+	if node.Metadata.HttpAddr != ":8000" {
+		t.Errorf("expected content to see %v, saw %v", ":5050", node.BindAddr)
+	}
+	if node.State != "Leader" {
+		t.Errorf("expected content to see %v, saw %v", "Leader", node.State)
 	}
 }

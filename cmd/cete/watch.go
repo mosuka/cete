@@ -55,55 +55,55 @@ func execWatch(ctx *cli.Context) error {
 				break
 			}
 
-			switch resp.Event {
-			case protobuf.WatchResponse_JOIN:
-				joinRequest := &protobuf.JoinRequest{}
-				if joinRequestInstance, err := marshaler.MarshalAny(resp.Data); err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.String(), err))
+			switch resp.Event.Type {
+			case protobuf.Event_Join:
+				eventReq := &protobuf.SetMetadataRequest{}
+				if eventData, err := marshaler.MarshalAny(resp.Event.Data); err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.Type.String(), err))
 				} else {
-					if joinRequestInstance == nil {
-						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.String()))
+					if eventData == nil {
+						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.Type.String()))
 					} else {
-						joinRequest = joinRequestInstance.(*protobuf.JoinRequest)
+						eventReq = eventData.(*protobuf.SetMetadataRequest)
 					}
 				}
-				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.String(), joinRequest))
-			case protobuf.WatchResponse_LEAVE:
-				leaveRequest := &protobuf.LeaveRequest{}
-				if leaveRequestInstance, err := marshaler.MarshalAny(resp.Data); err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.String(), err))
+				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.Type.String(), eventReq))
+			case protobuf.Event_Leave:
+				eventReq := &protobuf.DeleteMetadataRequest{}
+				if eventData, err := marshaler.MarshalAny(resp.Event.Data); err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.Type.String(), err))
 				} else {
-					if leaveRequestInstance == nil {
-						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.String()))
+					if eventData == nil {
+						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.Type.String()))
 					} else {
-						leaveRequest = leaveRequestInstance.(*protobuf.LeaveRequest)
+						eventReq = eventData.(*protobuf.DeleteMetadataRequest)
 					}
 				}
-				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.String(), leaveRequest))
-			case protobuf.WatchResponse_PUT:
-				putRequest := &protobuf.PutRequest{}
-				if putRequestInstance, err := marshaler.MarshalAny(resp.Data); err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.String(), err))
+				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.Type.String(), eventReq))
+			case protobuf.Event_Set:
+				putRequest := &protobuf.SetRequest{}
+				if putRequestInstance, err := marshaler.MarshalAny(resp.Event.Data); err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.Type.String(), err))
 				} else {
 					if putRequestInstance == nil {
-						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.String()))
+						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.Type.String()))
 					} else {
-						putRequest = putRequestInstance.(*protobuf.PutRequest)
+						putRequest = putRequestInstance.(*protobuf.SetRequest)
 					}
 				}
-				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.String(), putRequest))
-			case protobuf.WatchResponse_DELETE:
+				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.Type.String(), putRequest))
+			case protobuf.Event_Delete:
 				deleteRequest := &protobuf.DeleteRequest{}
-				if deleteRequestInstance, err := marshaler.MarshalAny(resp.Data); err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.String(), err))
+				if deleteRequestInstance, err := marshaler.MarshalAny(resp.Event.Data); err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.Type.String(), err))
 				} else {
 					if deleteRequestInstance == nil {
-						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.String()))
+						_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.Type.String()))
 					} else {
 						deleteRequest = deleteRequestInstance.(*protobuf.DeleteRequest)
 					}
 				}
-				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.String(), deleteRequest))
+				_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %v", resp.Event.Type.String(), deleteRequest))
 			}
 		}
 	}()

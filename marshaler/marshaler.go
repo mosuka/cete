@@ -59,24 +59,24 @@ func (j *CeteMarshaler) NewDecoder(r io.Reader) runtime.Decoder {
 			}
 
 			switch v.(type) {
-			case *protobuf.PutRequest:
-				v.(*protobuf.PutRequest).Value = buffer
+			case *protobuf.SetRequest:
+				v.(*protobuf.SetRequest).Value = buffer
 				return nil
-			case *protobuf.JoinRequest:
-				var tmpValue map[string]interface{}
-				if err = json.Unmarshal(buffer, &tmpValue); err != nil {
-					return err
-				}
-				if bindAddr, ok := tmpValue["bind_addr"].(string); ok {
-					v.(*protobuf.JoinRequest).BindAddr = bindAddr
-				}
-				if grpcAddr, ok := tmpValue["grpc_addr"].(string); ok {
-					v.(*protobuf.JoinRequest).GrpcAddr = grpcAddr
-				}
-				if httpAddr, ok := tmpValue["http_addr"].(string); ok {
-					v.(*protobuf.JoinRequest).HttpAddr = httpAddr
-				}
-				return nil
+			//case *protobuf.JoinRequest:
+			//	var tmpValue map[string]interface{}
+			//	if err = json.Unmarshal(buffer, &tmpValue); err != nil {
+			//		return err
+			//	}
+			//	if bindAddr, ok := tmpValue["bind_addr"].(string); ok {
+			//		v.(*protobuf.JoinRequest).BindAddr = bindAddr
+			//	}
+			//	if grpcAddr, ok := tmpValue["grpc_addr"].(string); ok {
+			//		v.(*protobuf.JoinRequest).GrpcAddr = grpcAddr
+			//	}
+			//	if httpAddr, ok := tmpValue["http_addr"].(string); ok {
+			//		v.(*protobuf.JoinRequest).HttpAddr = httpAddr
+			//	}
+			//	return nil
 			default:
 				return json.Unmarshal(buffer, v)
 			}

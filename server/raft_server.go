@@ -19,7 +19,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	raftbadgerdb "github.com/bbva/raft-badger"
@@ -46,15 +45,10 @@ type RaftServer struct {
 	transport *raft.NetworkTransport
 	raft      *raft.Raft
 
-	updateClusterStopCh chan struct{}
-	updateClusterDoneCh chan struct{}
-	updateClusterMutex  sync.RWMutex
+	watchClusterStopCh chan struct{}
+	watchClusterDoneCh chan struct{}
 
-	updateNodeStopCh chan struct{}
-	updateNodeDoneCh chan struct{}
-	updateNodeMutex  sync.RWMutex
-
-	peerClients map[string]*client.GRPCClient
+	applyCh chan *protobuf.Event
 }
 
 func NewRaftServer(nodeId string, bindAddr string, dataDir string, bootstrap bool, logger *zap.Logger) (*RaftServer, error) {
@@ -73,7 +67,10 @@ func NewRaftServer(nodeId string, bindAddr string, dataDir string, bootstrap boo
 		fsm:       fsm,
 		logger:    logger,
 
-		peerClients: make(map[string]*client.GRPCClient, 0),
+		watchClusterStopCh: make(chan struct{}),
+		watchClusterDoneCh: make(chan struct{}),
+
+		applyCh: make(chan *protobuf.Event, 1024),
 	}, nil
 }
 
@@ -161,96 +158,38 @@ func (s *RaftServer) Start() error {
 		s.raft.BootstrapCluster(configuration)
 	}
 
-	//go func() {
-	//	s.startUpdateNode(500 * time.Millisecond)
-	//}()
-
-	//go func() {
-	//	s.startUpdateCluster(500 * time.Millisecond)
-	//}()
+	go func() {
+		s.startWatchCluster(500 * time.Millisecond)
+	}()
 
 	s.logger.Info("Raft server started", zap.String("addr", s.bindAddr))
 	return nil
 }
 
 func (s *RaftServer) Stop() error {
-	//s.stopUpdateNode()
+	s.applyCh <- nil
+	s.logger.Info("apply channel has closed")
 
-	//s.stopUpdateCluster()
+	s.stopWatchCluster()
 
 	if err := s.fsm.Close(); err != nil {
 		s.logger.Error("failed to close FSM", zap.Error(err))
 	}
+	s.logger.Info("Raft FSM Closed")
 
-	s.logger.Info("Raft server stopped", zap.String("addr", s.bindAddr))
+	if future := s.raft.Shutdown(); future.Error() != nil {
+		s.logger.Info("failed to shutdown Raft", zap.Error(future.Error()))
+	}
+	s.logger.Info("Raft has shutdown", zap.String("addr", s.bindAddr))
+
 	return nil
 }
 
-func (s *RaftServer) startUpdateNode(checkInterval time.Duration) {
-	s.logger.Info("start to update node info")
-
-	s.updateNodeStopCh = make(chan struct{})
-	s.updateNodeDoneCh = make(chan struct{})
-
-	defer func() {
-		close(s.updateNodeDoneCh)
-	}()
-
-	ticker := time.NewTicker(checkInterval)
-	defer ticker.Stop()
-
-	timeout := 60 * time.Second
-	if err := s.WaitForDetectLeader(timeout); err != nil {
-		if err == errors.ErrTimeout {
-			s.logger.Error("leader detection timed out", zap.Duration("timeout", timeout), zap.Error(err))
-		} else {
-			s.logger.Error("failed to detect leader", zap.Error(err))
-		}
-	}
-
-	for {
-		select {
-		case <-s.updateNodeStopCh:
-			s.logger.Info("received a request to stop updating the node info")
-			return
-		case <-ticker.C:
-			s.logger.Debug("tick")
-
-			//// get nodes
-			//nodes, err := s.fsm.Nodes()
-			//if err != nil {
-			//	s.logger.Printf("[ERR] %v", err)
-			//}
-			//
-			//// update node state
-			//if nodes[s.nodeId].State != s.raft.State().String() {
-			//	nodes[s.nodeId].State = s.raft.State().String()
-			//}
-		}
-	}
-}
-
-func (s *RaftServer) stopUpdateNode() {
-	s.logger.Info("stop updating the node info")
-
-	if s.updateNodeStopCh != nil {
-		s.logger.Debug("send a request to stop updating the node info")
-		close(s.updateNodeStopCh)
-	}
-
-	s.logger.Info("wait for the updating node info to stopped")
-	<-s.updateNodeDoneCh
-	s.logger.Info("the updating node info has stopped")
-}
-
-func (s *RaftServer) startUpdateCluster(checkInterval time.Duration) {
+func (s *RaftServer) startWatchCluster(checkInterval time.Duration) {
 	s.logger.Info("start to update cluster info")
 
-	s.updateClusterStopCh = make(chan struct{})
-	s.updateClusterDoneCh = make(chan struct{})
-
 	defer func() {
-		close(s.updateClusterDoneCh)
+		close(s.watchClusterDoneCh)
 	}()
 
 	ticker := time.NewTicker(checkInterval)
@@ -267,121 +206,29 @@ func (s *RaftServer) startUpdateCluster(checkInterval time.Duration) {
 
 	for {
 		select {
-		case <-s.updateClusterStopCh:
+		case <-s.watchClusterStopCh:
 			s.logger.Info("received a request to stop updating a cluster")
 			return
+		case <-s.raft.LeaderCh():
+			s.logger.Info("became a leader", zap.String("leaderAddr", string(s.raft.Leader())))
+		case event := <-s.fsm.applyCh:
+			s.logger.Info("receive an event", zap.Any("event", event))
+			s.applyCh <- event
+			s.logger.Info("send an event", zap.Any("event", event))
 		case <-ticker.C:
 			s.logger.Debug("tick")
-
-			//s.updateClusterMutex.Lock()
-			//
-			//// get nodes in the cluster
-			//nodes, err := s.fsm.Nodes()
-			//if err != nil {
-			//	s.logger.Printf("[ERR] %v", err)
-			//}
-			//
-			//// clients
-			//for id, node := range nodes {
-			//	if client, exist := s.peerClients[id]; exist {
-			//		s.logger.Printf("[INFO] %s %s %s", id, client.conn.Target(), node.GrpcAddr)
-			//		if client.conn.Target() != node.GrpcAddr {
-			//			// reconnect
-			//			delete(s.peerClients, id)
-			//			err = client.Close()
-			//			if err != nil {
-			//				s.logger.Printf("[ERR] %v", err)
-			//			}
-			//			newClient, err := NewGRPCClient(node.GrpcAddr)
-			//			if err != nil {
-			//				s.logger.Printf("[ERR] %v", err)
-			//				continue
-			//			}
-			//			s.peerClients[id] = newClient
-			//		}
-			//	} else {
-			//		// connect
-			//		newClient, err := NewGRPCClient(node.GrpcAddr)
-			//		if err != nil {
-			//			s.logger.Printf("[ERR] %v", err)
-			//			continue
-			//		}
-			//		s.peerClients[id] = newClient
-			//	}
-			//}
-			//// close the connection to the node that left
-			//for id, client := range s.peerClients {
-			//	if _, exist := nodes[id]; !exist {
-			//		delete(s.peerClients, id)
-			//		err = client.Close()
-			//		if err != nil {
-			//			s.logger.Printf("[ERR] %v", err)
-			//		}
-			//	}
-			//}
-			//
-			//// update node state
-			//nodes[s.nodeId].State = s.raft.State().String()
-			//
-			//// nodes
-			//for id, client := range s.peerClients {
-			//	if resp, err := client.Node();  err != nil {
-			//		s.logger.Printf("[ERR] %v", err)
-			//		node := &pbkvs.Node{
-			//			BindAddr: s.bindAddr,
-			//			GrpcAddr: s.address,
-			//			State: raft.Shutdown.String(),
-			//		}
-			//		s.fsm.setNode(id, node)
-			//	} else {
-			//		s.fsm.setNode(id, resp.Node)
-			//	}
-			//}
-			//
-			//if resp, err := s.Cluster();err != nil {
-			//	s.logger.Printf("[ERR] %v", err)
-			//} else {
-			//	s.logger.Printf("[DEBUG] %v", resp.Nodes)
-			//}
-			//
-			//s.updateClusterMutex.Unlock()
-
-			//// update node state
-			//node := nodes[s.nodeId]
-			//node.State = s.raft.State().String()
-
-			//status, err := s.Cluster() // TODO: wait for cluster ready
-			//if err != nil {
-			//	s.logger.Printf("[ERR] %v", err)
-			//}
-			//s.logger.Printf("[INFO] %v", status)
-			//default:
-			//	// sleep
-			//	time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
 
-func (s *RaftServer) stopUpdateCluster() {
-	s.logger.Info("stop to update cluster info")
-
-	s.updateClusterMutex.Lock()
-	for id, client := range s.peerClients {
-		s.logger.Info("close peer client", zap.String("id", id), zap.String("addr", client.Target()))
-		err := client.Close()
-		if err != nil {
-			s.logger.Info("failed to close peer client", zap.String("id", id), zap.String("addr", client.Target()), zap.Error(err))
-		}
-	}
-	s.updateClusterMutex.Unlock()
-
-	if s.updateClusterStopCh != nil {
+func (s *RaftServer) stopWatchCluster() {
+	if s.watchClusterStopCh != nil {
 		s.logger.Info("send a request to stop updating a cluster")
-		close(s.updateClusterStopCh)
+		close(s.watchClusterStopCh)
 	}
 
 	s.logger.Info("wait for the cluster update to stop")
-	<-s.updateClusterDoneCh
+	<-s.watchClusterDoneCh
 	s.logger.Info("the cluster update has been stopped")
 }
 
@@ -467,54 +314,60 @@ func (s *RaftServer) Exist(id string) (bool, error) {
 	return exist, nil
 }
 
-func (s *RaftServer) join(req *protobuf.JoinRequest) error {
-	nodeAny := &any.Any{}
-	err := marshaler.UnmarshalAny(req, nodeAny)
+func (s *RaftServer) join(id string, metadata *protobuf.Metadata) error {
+	data := &protobuf.SetMetadataRequest{
+		Id:       id,
+		Metadata: metadata,
+	}
+
+	dataAny := &any.Any{}
+	err := marshaler.UnmarshalAny(data, dataAny)
 	if err != nil {
-		s.logger.Error("failed to unmarshal request to the command data", zap.Any("req", req), zap.Error(err))
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("id", id), zap.Any("metadata", metadata), zap.Error(err))
 		return err
 	}
 
-	c := &protobuf.KVSCommand{
-		Type: protobuf.KVSCommand_JOIN,
-		Data: nodeAny,
+	c := &protobuf.Event{
+		Type: protobuf.Event_Join,
+		Data: dataAny,
 	}
 
 	msg, err := proto.Marshal(c)
 	if err != nil {
-		s.logger.Error("failed to marshal the command into the bytes as message", zap.Error(err))
+		s.logger.Error("failed to marshal the command into the bytes as message", zap.String("id", id), zap.Any("metadata", metadata), zap.Error(err))
 		return err
 	}
 
 	f := s.raft.Apply(msg, 10*time.Second)
 	if err = f.Error(); err != nil {
-		s.logger.Error("failed to apply message", zap.Error(err))
+		s.logger.Error("failed to apply message", zap.String("id", id), zap.Any("metadata", metadata), zap.Error(err))
 		return err
 	}
 
 	return nil
 }
 
-func (s *RaftServer) Join(req *protobuf.JoinRequest) error {
-	nodeExists, err := s.Exist(req.Id)
+func (s *RaftServer) Join(id string, node *protobuf.Node) error {
+	nodeExists, err := s.Exist(id)
 	if err != nil {
 		return err
 	}
 
 	if nodeExists {
-		s.logger.Debug("node already exists", zap.String("id", req.Id), zap.String("addr", req.BindAddr))
+		s.logger.Debug("node already exists", zap.String("id", id), zap.String("bind_addr", node.BindAddr))
 	} else {
-		if future := s.raft.AddVoter(raft.ServerID(req.Id), raft.ServerAddress(req.BindAddr), 0, 0); future.Error() != nil {
-			s.logger.Error("failed to add voter", zap.String("id", req.Id), zap.String("addr", req.BindAddr), zap.Error(future.Error()))
+		if future := s.raft.AddVoter(raft.ServerID(id), raft.ServerAddress(node.BindAddr), 0, 0); future.Error() != nil {
+			s.logger.Error("failed to add voter", zap.String("id", id), zap.String("bind_addr", node.BindAddr), zap.Error(future.Error()))
 			return future.Error()
 		}
-		s.logger.Info("node has successfully joined", zap.String("id", req.Id))
+		s.logger.Info("node has successfully joined", zap.String("id", id), zap.String("bind_addr", node.BindAddr))
 	}
 
-	if err := s.join(req); err != nil {
-		s.logger.Error("failed to join node", zap.Any("req", req), zap.Error(err))
+	if err := s.join(id, node.Metadata); err != nil {
+		s.logger.Error("failed to set node metadata", zap.String("id", id), zap.Any("metadata", node.Metadata), zap.Error(err))
 		return err
 	}
+	s.logger.Info("node metadata has successfully set", zap.String("id", id), zap.Any("metadata", node.Metadata))
 
 	if nodeExists {
 		return errors.ErrNodeAlreadyExists
@@ -523,52 +376,56 @@ func (s *RaftServer) Join(req *protobuf.JoinRequest) error {
 	}
 }
 
-func (s *RaftServer) leave(req *protobuf.LeaveRequest) error {
-	nodeAny := &any.Any{}
-	err := marshaler.UnmarshalAny(req, nodeAny)
+func (s *RaftServer) leave(id string) error {
+	data := &protobuf.DeleteMetadataRequest{
+		Id: id,
+	}
+
+	dataAny := &any.Any{}
+	err := marshaler.UnmarshalAny(data, dataAny)
 	if err != nil {
-		s.logger.Error("failed to unmarshal request to the command data", zap.Any("req", req), zap.Error(err))
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("id", id), zap.Error(err))
 		return err
 	}
 
-	c := &protobuf.KVSCommand{
-		Type: protobuf.KVSCommand_LEAVE,
-		Data: nodeAny,
+	c := &protobuf.Event{
+		Type: protobuf.Event_Leave,
+		Data: dataAny,
 	}
 
 	msg, err := proto.Marshal(c)
 	if err != nil {
-		s.logger.Error("failed to marshal the command into the bytes as the message", zap.Error(err))
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("id", id), zap.Error(err))
 		return err
 	}
 
 	f := s.raft.Apply(msg, 10*time.Second)
 	if err = f.Error(); err != nil {
-		s.logger.Error("failed to apply the message", zap.Error(err))
+		s.logger.Error("failed to apply the message", zap.String("id", id), zap.Error(err))
 		return err
 	}
 
 	return nil
 }
 
-func (s *RaftServer) Leave(req *protobuf.LeaveRequest) error {
-	nodeExists, err := s.Exist(req.Id)
+func (s *RaftServer) Leave(id string) error {
+	nodeExists, err := s.Exist(id)
 	if err != nil {
 		return err
 	}
 
 	if nodeExists {
-		if future := s.raft.RemoveServer(raft.ServerID(req.Id), 0, 0); future.Error() != nil {
-			s.logger.Error("failed to remove server", zap.String("id", req.Id), zap.Error(future.Error()))
+		if future := s.raft.RemoveServer(raft.ServerID(id), 0, 0); future.Error() != nil {
+			s.logger.Error("failed to remove server", zap.String("id", id), zap.Error(future.Error()))
 			return future.Error()
 		}
-		s.logger.Info("node has successfully left", zap.String("id", req.Id))
+		s.logger.Info("node has successfully left", zap.String("id", id))
 	} else {
-		s.logger.Debug("node does not exists", zap.String("id", req.Id))
+		s.logger.Debug("node does not exists", zap.String("id", id))
 	}
 
-	if err = s.leave(req); err != nil {
-		s.logger.Error("failed to join node", zap.Any("req", req), zap.Error(err))
+	if err = s.leave(id); err != nil {
+		s.logger.Error("failed to join node", zap.String("id", id), zap.Error(err))
 		return err
 	}
 
@@ -588,8 +445,7 @@ func (s *RaftServer) Node() (*protobuf.NodeResponse, error) {
 			node.BindAddr = string(server.Address)
 			node.State = s.raft.State().String()
 			if metadata := s.fsm.getMetadata(s.nodeId); metadata != nil {
-				node.GrpcAddr = metadata.GrpcAddr
-				node.HttpAddr = metadata.HttpAddr
+				node.Metadata = metadata
 			}
 			break
 		}
@@ -621,17 +477,17 @@ func (s *RaftServer) Cluster() (*protobuf.ClusterResponse, error) {
 
 			if metadata := s.fsm.getMetadata(string(server.ID)); metadata != nil {
 				grpcAddr := metadata.GrpcAddr
-				if client, err := client.NewGRPCClient(grpcAddr); err != nil {
+				if c, err := client.NewGRPCClient(grpcAddr); err != nil {
 					s.logger.Error("failed to create client", zap.String("addr", grpcAddr), zap.Error(err))
 					node.State = raft.Shutdown.String()
 				} else {
-					if resp, err := client.Node(); err != nil {
+					if resp, err := c.Node(); err != nil {
 						s.logger.Error("failed to get node info", zap.String("addr", grpcAddr), zap.Error(err))
 						node.State = raft.Shutdown.String()
 					} else {
 						node = resp.Node
 					}
-					if err = client.Close(); err != nil {
+					if err = c.Close(); err != nil {
 						s.logger.Error("failed to close client", zap.String("addr", grpcAddr), zap.Error(err))
 					}
 				}
@@ -672,15 +528,15 @@ func (s *RaftServer) Get(req *protobuf.GetRequest) (*protobuf.GetResponse, error
 	return resp, nil
 }
 
-func (s *RaftServer) Set(req *protobuf.PutRequest) error {
+func (s *RaftServer) Set(req *protobuf.SetRequest) error {
 	kvpAny := &any.Any{}
 	if err := marshaler.UnmarshalAny(req, kvpAny); err != nil {
 		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Key), zap.Error(err))
 		return err
 	}
 
-	c := &protobuf.KVSCommand{
-		Type: protobuf.KVSCommand_PUT,
+	c := &protobuf.Event{
+		Type: protobuf.Event_Set,
 		Data: kvpAny,
 	}
 
@@ -705,8 +561,8 @@ func (s *RaftServer) Delete(req *protobuf.DeleteRequest) error {
 		return err
 	}
 
-	c := &protobuf.KVSCommand{
-		Type: protobuf.KVSCommand_DELETE,
+	c := &protobuf.Event{
+		Type: protobuf.Event_Delete,
 		Data: kvpAny,
 	}
 

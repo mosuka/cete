@@ -28,89 +28,103 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type KVSCommand_Type int32
+type Event_Type int32
 
 const (
-	KVSCommand_UNKNOWN KVSCommand_Type = 0
-	KVSCommand_JOIN    KVSCommand_Type = 1
-	KVSCommand_LEAVE   KVSCommand_Type = 2
-	KVSCommand_PUT     KVSCommand_Type = 3
-	KVSCommand_DELETE  KVSCommand_Type = 4
+	Event_Unknown Event_Type = 0
+	Event_Join    Event_Type = 1
+	Event_Leave   Event_Type = 2
+	Event_Set     Event_Type = 3
+	Event_Delete  Event_Type = 4
 )
 
-var KVSCommand_Type_name = map[int32]string{
-	0: "UNKNOWN",
-	1: "JOIN",
-	2: "LEAVE",
-	3: "PUT",
-	4: "DELETE",
+var Event_Type_name = map[int32]string{
+	0: "Unknown",
+	1: "Join",
+	2: "Leave",
+	3: "Set",
+	4: "Delete",
 }
 
-var KVSCommand_Type_value = map[string]int32{
-	"UNKNOWN": 0,
-	"JOIN":    1,
-	"LEAVE":   2,
-	"PUT":     3,
-	"DELETE":  4,
+var Event_Type_value = map[string]int32{
+	"Unknown": 0,
+	"Join":    1,
+	"Leave":   2,
+	"Set":     3,
+	"Delete":  4,
 }
 
-func (x KVSCommand_Type) String() string {
-	return proto.EnumName(KVSCommand_Type_name, int32(x))
+func (x Event_Type) String() string {
+	return proto.EnumName(Event_Type_name, int32(x))
 }
 
-func (KVSCommand_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{9, 0}
+func (Event_Type) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_431078ad7b21f851, []int{12, 0}
 }
 
-type WatchResponse_Event int32
-
-const (
-	WatchResponse_UNKNOWN WatchResponse_Event = 0
-	WatchResponse_JOIN    WatchResponse_Event = 1
-	WatchResponse_LEAVE   WatchResponse_Event = 2
-	WatchResponse_PUT     WatchResponse_Event = 3
-	WatchResponse_DELETE  WatchResponse_Event = 4
-)
-
-var WatchResponse_Event_name = map[int32]string{
-	0: "UNKNOWN",
-	1: "JOIN",
-	2: "LEAVE",
-	3: "PUT",
-	4: "DELETE",
-}
-
-var WatchResponse_Event_value = map[string]int32{
-	"UNKNOWN": 0,
-	"JOIN":    1,
-	"LEAVE":   2,
-	"PUT":     3,
-	"DELETE":  4,
-}
-
-func (x WatchResponse_Event) String() string {
-	return proto.EnumName(WatchResponse_Event_name, int32(x))
-}
-
-func (WatchResponse_Event) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{10, 0}
-}
-
-type Node struct {
-	BindAddr             string   `protobuf:"bytes,1,opt,name=bind_addr,json=bindAddr,proto3" json:"bind_addr,omitempty"`
-	GrpcAddr             string   `protobuf:"bytes,2,opt,name=grpc_addr,json=grpcAddr,proto3" json:"grpc_addr,omitempty"`
-	HttpAddr             string   `protobuf:"bytes,3,opt,name=http_addr,json=httpAddr,proto3" json:"http_addr,omitempty"`
-	State                string   `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
+type Metadata struct {
+	GrpcAddr             string   `protobuf:"bytes,1,opt,name=grpc_addr,json=grpcAddr,proto3" json:"grpc_addr,omitempty"`
+	HttpAddr             string   `protobuf:"bytes,2,opt,name=http_addr,json=httpAddr,proto3" json:"http_addr,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Metadata) Reset()         { *m = Metadata{} }
+func (m *Metadata) String() string { return proto.CompactTextString(m) }
+func (*Metadata) ProtoMessage()    {}
+func (*Metadata) Descriptor() ([]byte, []int) {
+	return fileDescriptor_431078ad7b21f851, []int{0}
+}
+
+func (m *Metadata) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Metadata.Unmarshal(m, b)
+}
+func (m *Metadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Metadata.Marshal(b, m, deterministic)
+}
+func (m *Metadata) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Metadata.Merge(m, src)
+}
+func (m *Metadata) XXX_Size() int {
+	return xxx_messageInfo_Metadata.Size(m)
+}
+func (m *Metadata) XXX_DiscardUnknown() {
+	xxx_messageInfo_Metadata.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Metadata proto.InternalMessageInfo
+
+func (m *Metadata) GetGrpcAddr() string {
+	if m != nil {
+		return m.GrpcAddr
+	}
+	return ""
+}
+
+func (m *Metadata) GetHttpAddr() string {
+	if m != nil {
+		return m.HttpAddr
+	}
+	return ""
+}
+
+type Node struct {
+	BindAddr string `protobuf:"bytes,1,opt,name=bind_addr,json=bindAddr,proto3" json:"bind_addr,omitempty"`
+	//    string grpc_addr = 2;
+	//    string http_addr = 3;
+	State                string    `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	Metadata             *Metadata `protobuf:"bytes,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
 }
 
 func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{0}
+	return fileDescriptor_431078ad7b21f851, []int{1}
 }
 
 func (m *Node) XXX_Unmarshal(b []byte) error {
@@ -138,20 +152,6 @@ func (m *Node) GetBindAddr() string {
 	return ""
 }
 
-func (m *Node) GetGrpcAddr() string {
-	if m != nil {
-		return m.GrpcAddr
-	}
-	return ""
-}
-
-func (m *Node) GetHttpAddr() string {
-	if m != nil {
-		return m.HttpAddr
-	}
-	return ""
-}
-
 func (m *Node) GetState() string {
 	if m != nil {
 		return m.State
@@ -159,11 +159,19 @@ func (m *Node) GetState() string {
 	return ""
 }
 
+func (m *Node) GetMetadata() *Metadata {
+	if m != nil {
+		return m.Metadata
+	}
+	return nil
+}
+
 type JoinRequest struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	BindAddr             string   `protobuf:"bytes,2,opt,name=bind_addr,json=bindAddr,proto3" json:"bind_addr,omitempty"`
-	GrpcAddr             string   `protobuf:"bytes,3,opt,name=grpc_addr,json=grpcAddr,proto3" json:"grpc_addr,omitempty"`
-	HttpAddr             string   `protobuf:"bytes,4,opt,name=http_addr,json=httpAddr,proto3" json:"http_addr,omitempty"`
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	//    string bind_addr = 2;
+	//    string grpc_addr = 3;
+	//    string http_addr = 4;
+	Node                 *Node    `protobuf:"bytes,2,opt,name=node,proto3" json:"node,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -173,7 +181,7 @@ func (m *JoinRequest) Reset()         { *m = JoinRequest{} }
 func (m *JoinRequest) String() string { return proto.CompactTextString(m) }
 func (*JoinRequest) ProtoMessage()    {}
 func (*JoinRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{1}
+	return fileDescriptor_431078ad7b21f851, []int{2}
 }
 
 func (m *JoinRequest) XXX_Unmarshal(b []byte) error {
@@ -201,25 +209,11 @@ func (m *JoinRequest) GetId() string {
 	return ""
 }
 
-func (m *JoinRequest) GetBindAddr() string {
+func (m *JoinRequest) GetNode() *Node {
 	if m != nil {
-		return m.BindAddr
+		return m.Node
 	}
-	return ""
-}
-
-func (m *JoinRequest) GetGrpcAddr() string {
-	if m != nil {
-		return m.GrpcAddr
-	}
-	return ""
-}
-
-func (m *JoinRequest) GetHttpAddr() string {
-	if m != nil {
-		return m.HttpAddr
-	}
-	return ""
+	return nil
 }
 
 type LeaveRequest struct {
@@ -233,7 +227,7 @@ func (m *LeaveRequest) Reset()         { *m = LeaveRequest{} }
 func (m *LeaveRequest) String() string { return proto.CompactTextString(m) }
 func (*LeaveRequest) ProtoMessage()    {}
 func (*LeaveRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{2}
+	return fileDescriptor_431078ad7b21f851, []int{3}
 }
 
 func (m *LeaveRequest) XXX_Unmarshal(b []byte) error {
@@ -272,7 +266,7 @@ func (m *NodeResponse) Reset()         { *m = NodeResponse{} }
 func (m *NodeResponse) String() string { return proto.CompactTextString(m) }
 func (*NodeResponse) ProtoMessage()    {}
 func (*NodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{3}
+	return fileDescriptor_431078ad7b21f851, []int{4}
 }
 
 func (m *NodeResponse) XXX_Unmarshal(b []byte) error {
@@ -311,7 +305,7 @@ func (m *ClusterResponse) Reset()         { *m = ClusterResponse{} }
 func (m *ClusterResponse) String() string { return proto.CompactTextString(m) }
 func (*ClusterResponse) ProtoMessage()    {}
 func (*ClusterResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{4}
+	return fileDescriptor_431078ad7b21f851, []int{5}
 }
 
 func (m *ClusterResponse) XXX_Unmarshal(b []byte) error {
@@ -350,7 +344,7 @@ func (m *GetRequest) Reset()         { *m = GetRequest{} }
 func (m *GetRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRequest) ProtoMessage()    {}
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{5}
+	return fileDescriptor_431078ad7b21f851, []int{6}
 }
 
 func (m *GetRequest) XXX_Unmarshal(b []byte) error {
@@ -389,7 +383,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{6}
+	return fileDescriptor_431078ad7b21f851, []int{7}
 }
 
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
@@ -417,7 +411,7 @@ func (m *GetResponse) GetValue() []byte {
 	return nil
 }
 
-type PutRequest struct {
+type SetRequest struct {
 	Key                  string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -425,39 +419,39 @@ type PutRequest struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *PutRequest) Reset()         { *m = PutRequest{} }
-func (m *PutRequest) String() string { return proto.CompactTextString(m) }
-func (*PutRequest) ProtoMessage()    {}
-func (*PutRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{7}
+func (m *SetRequest) Reset()         { *m = SetRequest{} }
+func (m *SetRequest) String() string { return proto.CompactTextString(m) }
+func (*SetRequest) ProtoMessage()    {}
+func (*SetRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_431078ad7b21f851, []int{8}
 }
 
-func (m *PutRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PutRequest.Unmarshal(m, b)
+func (m *SetRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetRequest.Unmarshal(m, b)
 }
-func (m *PutRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PutRequest.Marshal(b, m, deterministic)
+func (m *SetRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetRequest.Marshal(b, m, deterministic)
 }
-func (m *PutRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PutRequest.Merge(m, src)
+func (m *SetRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetRequest.Merge(m, src)
 }
-func (m *PutRequest) XXX_Size() int {
-	return xxx_messageInfo_PutRequest.Size(m)
+func (m *SetRequest) XXX_Size() int {
+	return xxx_messageInfo_SetRequest.Size(m)
 }
-func (m *PutRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_PutRequest.DiscardUnknown(m)
+func (m *SetRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_PutRequest proto.InternalMessageInfo
+var xxx_messageInfo_SetRequest proto.InternalMessageInfo
 
-func (m *PutRequest) GetKey() string {
+func (m *SetRequest) GetKey() string {
 	if m != nil {
 		return m.Key
 	}
 	return ""
 }
 
-func (m *PutRequest) GetValue() []byte {
+func (m *SetRequest) GetValue() []byte {
 	if m != nil {
 		return m.Value
 	}
@@ -475,7 +469,7 @@ func (m *DeleteRequest) Reset()         { *m = DeleteRequest{} }
 func (m *DeleteRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteRequest) ProtoMessage()    {}
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{8}
+	return fileDescriptor_431078ad7b21f851, []int{9}
 }
 
 func (m *DeleteRequest) XXX_Unmarshal(b []byte) error {
@@ -503,47 +497,133 @@ func (m *DeleteRequest) GetKey() string {
 	return ""
 }
 
-type KVSCommand struct {
-	Type                 KVSCommand_Type `protobuf:"varint,1,opt,name=type,proto3,enum=kvs.KVSCommand_Type" json:"type,omitempty"`
-	Data                 *any.Any        `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
-	XXX_unrecognized     []byte          `json:"-"`
-	XXX_sizecache        int32           `json:"-"`
+type SetMetadataRequest struct {
+	Id                   string    `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Metadata             *Metadata `protobuf:"bytes,2,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
 }
 
-func (m *KVSCommand) Reset()         { *m = KVSCommand{} }
-func (m *KVSCommand) String() string { return proto.CompactTextString(m) }
-func (*KVSCommand) ProtoMessage()    {}
-func (*KVSCommand) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{9}
+func (m *SetMetadataRequest) Reset()         { *m = SetMetadataRequest{} }
+func (m *SetMetadataRequest) String() string { return proto.CompactTextString(m) }
+func (*SetMetadataRequest) ProtoMessage()    {}
+func (*SetMetadataRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_431078ad7b21f851, []int{10}
 }
 
-func (m *KVSCommand) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_KVSCommand.Unmarshal(m, b)
+func (m *SetMetadataRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetMetadataRequest.Unmarshal(m, b)
 }
-func (m *KVSCommand) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_KVSCommand.Marshal(b, m, deterministic)
+func (m *SetMetadataRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetMetadataRequest.Marshal(b, m, deterministic)
 }
-func (m *KVSCommand) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KVSCommand.Merge(m, src)
+func (m *SetMetadataRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetMetadataRequest.Merge(m, src)
 }
-func (m *KVSCommand) XXX_Size() int {
-	return xxx_messageInfo_KVSCommand.Size(m)
+func (m *SetMetadataRequest) XXX_Size() int {
+	return xxx_messageInfo_SetMetadataRequest.Size(m)
 }
-func (m *KVSCommand) XXX_DiscardUnknown() {
-	xxx_messageInfo_KVSCommand.DiscardUnknown(m)
+func (m *SetMetadataRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetMetadataRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_KVSCommand proto.InternalMessageInfo
+var xxx_messageInfo_SetMetadataRequest proto.InternalMessageInfo
 
-func (m *KVSCommand) GetType() KVSCommand_Type {
+func (m *SetMetadataRequest) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+func (m *SetMetadataRequest) GetMetadata() *Metadata {
+	if m != nil {
+		return m.Metadata
+	}
+	return nil
+}
+
+type DeleteMetadataRequest struct {
+	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeleteMetadataRequest) Reset()         { *m = DeleteMetadataRequest{} }
+func (m *DeleteMetadataRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteMetadataRequest) ProtoMessage()    {}
+func (*DeleteMetadataRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_431078ad7b21f851, []int{11}
+}
+
+func (m *DeleteMetadataRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DeleteMetadataRequest.Unmarshal(m, b)
+}
+func (m *DeleteMetadataRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DeleteMetadataRequest.Marshal(b, m, deterministic)
+}
+func (m *DeleteMetadataRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteMetadataRequest.Merge(m, src)
+}
+func (m *DeleteMetadataRequest) XXX_Size() int {
+	return xxx_messageInfo_DeleteMetadataRequest.Size(m)
+}
+func (m *DeleteMetadataRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteMetadataRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteMetadataRequest proto.InternalMessageInfo
+
+func (m *DeleteMetadataRequest) GetId() string {
+	if m != nil {
+		return m.Id
+	}
+	return ""
+}
+
+type Event struct {
+	Type                 Event_Type `protobuf:"varint,1,opt,name=type,proto3,enum=kvs.Event_Type" json:"type,omitempty"`
+	Data                 *any.Any   `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
+}
+
+func (m *Event) Reset()         { *m = Event{} }
+func (m *Event) String() string { return proto.CompactTextString(m) }
+func (*Event) ProtoMessage()    {}
+func (*Event) Descriptor() ([]byte, []int) {
+	return fileDescriptor_431078ad7b21f851, []int{12}
+}
+
+func (m *Event) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Event.Unmarshal(m, b)
+}
+func (m *Event) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Event.Marshal(b, m, deterministic)
+}
+func (m *Event) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Event.Merge(m, src)
+}
+func (m *Event) XXX_Size() int {
+	return xxx_messageInfo_Event.Size(m)
+}
+func (m *Event) XXX_DiscardUnknown() {
+	xxx_messageInfo_Event.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Event proto.InternalMessageInfo
+
+func (m *Event) GetType() Event_Type {
 	if m != nil {
 		return m.Type
 	}
-	return KVSCommand_UNKNOWN
+	return Event_Unknown
 }
 
-func (m *KVSCommand) GetData() *any.Any {
+func (m *Event) GetData() *any.Any {
 	if m != nil {
 		return m.Data
 	}
@@ -551,18 +631,17 @@ func (m *KVSCommand) GetData() *any.Any {
 }
 
 type WatchResponse struct {
-	Event                WatchResponse_Event `protobuf:"varint,1,opt,name=event,proto3,enum=kvs.WatchResponse_Event" json:"event,omitempty"`
-	Data                 *any.Any            `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
+	Event                *Event   `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *WatchResponse) Reset()         { *m = WatchResponse{} }
 func (m *WatchResponse) String() string { return proto.CompactTextString(m) }
 func (*WatchResponse) ProtoMessage()    {}
 func (*WatchResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{10}
+	return fileDescriptor_431078ad7b21f851, []int{13}
 }
 
 func (m *WatchResponse) XXX_Unmarshal(b []byte) error {
@@ -583,16 +662,9 @@ func (m *WatchResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_WatchResponse proto.InternalMessageInfo
 
-func (m *WatchResponse) GetEvent() WatchResponse_Event {
+func (m *WatchResponse) GetEvent() *Event {
 	if m != nil {
 		return m.Event
-	}
-	return WatchResponse_UNKNOWN
-}
-
-func (m *WatchResponse) GetData() *any.Any {
-	if m != nil {
-		return m.Data
 	}
 	return nil
 }
@@ -608,7 +680,7 @@ func (m *MetricsResponse) Reset()         { *m = MetricsResponse{} }
 func (m *MetricsResponse) String() string { return proto.CompactTextString(m) }
 func (*MetricsResponse) ProtoMessage()    {}
 func (*MetricsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{11}
+	return fileDescriptor_431078ad7b21f851, []int{14}
 }
 
 func (m *MetricsResponse) XXX_Unmarshal(b []byte) error {
@@ -648,7 +720,7 @@ func (m *KeyValuePair) Reset()         { *m = KeyValuePair{} }
 func (m *KeyValuePair) String() string { return proto.CompactTextString(m) }
 func (*KeyValuePair) ProtoMessage()    {}
 func (*KeyValuePair) Descriptor() ([]byte, []int) {
-	return fileDescriptor_431078ad7b21f851, []int{12}
+	return fileDescriptor_431078ad7b21f851, []int{15}
 }
 
 func (m *KeyValuePair) XXX_Unmarshal(b []byte) error {
@@ -684,8 +756,8 @@ func (m *KeyValuePair) GetValue() []byte {
 }
 
 func init() {
-	proto.RegisterEnum("kvs.KVSCommand_Type", KVSCommand_Type_name, KVSCommand_Type_value)
-	proto.RegisterEnum("kvs.WatchResponse_Event", WatchResponse_Event_name, WatchResponse_Event_value)
+	proto.RegisterEnum("kvs.Event_Type", Event_Type_name, Event_Type_value)
+	proto.RegisterType((*Metadata)(nil), "kvs.Metadata")
 	proto.RegisterType((*Node)(nil), "kvs.Node")
 	proto.RegisterType((*JoinRequest)(nil), "kvs.JoinRequest")
 	proto.RegisterType((*LeaveRequest)(nil), "kvs.LeaveRequest")
@@ -694,9 +766,11 @@ func init() {
 	proto.RegisterMapType((map[string]*Node)(nil), "kvs.ClusterResponse.NodesEntry")
 	proto.RegisterType((*GetRequest)(nil), "kvs.GetRequest")
 	proto.RegisterType((*GetResponse)(nil), "kvs.GetResponse")
-	proto.RegisterType((*PutRequest)(nil), "kvs.PutRequest")
+	proto.RegisterType((*SetRequest)(nil), "kvs.SetRequest")
 	proto.RegisterType((*DeleteRequest)(nil), "kvs.DeleteRequest")
-	proto.RegisterType((*KVSCommand)(nil), "kvs.KVSCommand")
+	proto.RegisterType((*SetMetadataRequest)(nil), "kvs.SetMetadataRequest")
+	proto.RegisterType((*DeleteMetadataRequest)(nil), "kvs.DeleteMetadataRequest")
+	proto.RegisterType((*Event)(nil), "kvs.Event")
 	proto.RegisterType((*WatchResponse)(nil), "kvs.WatchResponse")
 	proto.RegisterType((*MetricsResponse)(nil), "kvs.MetricsResponse")
 	proto.RegisterType((*KeyValuePair)(nil), "kvs.KeyValuePair")
@@ -705,60 +779,60 @@ func init() {
 func init() { proto.RegisterFile("protobuf/kvs.proto", fileDescriptor_431078ad7b21f851) }
 
 var fileDescriptor_431078ad7b21f851 = []byte{
-	// 839 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x55, 0xdd, 0x8e, 0xda, 0x46,
-	0x18, 0x8d, 0xff, 0x16, 0xf8, 0x60, 0x77, 0x9d, 0x09, 0x8d, 0x88, 0x37, 0xcd, 0x26, 0xee, 0xcd,
-	0x8a, 0x76, 0xed, 0x96, 0xfe, 0x2a, 0x52, 0x2a, 0x6d, 0x89, 0x15, 0x35, 0x10, 0x16, 0xb1, 0x1b,
-	0x22, 0xf5, 0xa6, 0x1a, 0xf0, 0x14, 0x2c, 0xc0, 0x76, 0xed, 0x31, 0x95, 0x15, 0xe5, 0xa6, 0xf7,
-	0xbd, 0xea, 0x03, 0xf4, 0xba, 0xcf, 0xd3, 0x57, 0xe8, 0x13, 0xf4, 0x09, 0xaa, 0x19, 0x8f, 0x31,
-	0x2c, 0x71, 0xfa, 0x73, 0xb5, 0xf8, 0x3b, 0xe7, 0x3b, 0x73, 0x66, 0xe6, 0x3b, 0xb3, 0x80, 0xc2,
-	0x28, 0xa0, 0xc1, 0x24, 0xf9, 0xc1, 0x5e, 0xac, 0x63, 0x8b, 0x7f, 0x20, 0x65, 0xb1, 0x8e, 0x8d,
-	0x7b, 0xb3, 0x20, 0x98, 0x2d, 0x89, 0xbd, 0xc1, 0xb1, 0x9f, 0x66, 0xb8, 0x71, 0x72, 0x13, 0x22,
-	0xab, 0x90, 0xe6, 0xe0, 0x7d, 0x01, 0xe2, 0xd0, 0xb3, 0xb1, 0xef, 0x07, 0x14, 0x53, 0x2f, 0xf0,
-	0x85, 0xb4, 0xf1, 0x11, 0xff, 0x33, 0x3d, 0x9f, 0x11, 0xff, 0x3c, 0xfe, 0x09, 0xcf, 0x66, 0x24,
-	0xb2, 0x83, 0x90, 0x33, 0xf6, 0xd9, 0x66, 0x0c, 0xea, 0x20, 0x70, 0x09, 0x3a, 0x81, 0xda, 0xc4,
-	0xf3, 0xdd, 0xef, 0xb1, 0xeb, 0x46, 0x2d, 0xe9, 0xa1, 0x74, 0x56, 0x1b, 0x55, 0x59, 0xe1, 0xc2,
-	0x75, 0x23, 0x06, 0xce, 0xa2, 0x70, 0x9a, 0x81, 0x72, 0x06, 0xb2, 0x42, 0x0e, 0xce, 0x29, 0x0d,
-	0x33, 0x50, 0xc9, 0x40, 0x56, 0xe0, 0x60, 0x13, 0xb4, 0x98, 0x62, 0x4a, 0x5a, 0x2a, 0x07, 0xb2,
-	0x0f, 0x93, 0x42, 0xfd, 0x79, 0xe0, 0xf9, 0x23, 0xf2, 0x63, 0x42, 0x62, 0x8a, 0x8e, 0x40, 0xf6,
-	0x5c, 0xb1, 0xa8, 0xec, 0xb9, 0xbb, 0x5e, 0xe4, 0x77, 0x79, 0x51, 0xde, 0xe5, 0x45, 0xdd, 0xf5,
-	0x62, 0x3e, 0x80, 0x46, 0x9f, 0xe0, 0x35, 0x29, 0x59, 0xd6, 0x3c, 0x87, 0x06, 0x3b, 0x8a, 0x11,
-	0x89, 0xc3, 0xc0, 0x8f, 0x09, 0x7a, 0x1f, 0x54, 0x3f, 0x70, 0x09, 0x67, 0xd4, 0x3b, 0x35, 0x8b,
-	0xdd, 0x1e, 0x27, 0xf0, 0xb2, 0xf9, 0x8b, 0x04, 0xc7, 0xdd, 0x65, 0x12, 0x53, 0x12, 0x6d, 0x5a,
-	0x3e, 0x07, 0x8d, 0x61, 0x71, 0x4b, 0x7a, 0xa8, 0x9c, 0xd5, 0x3b, 0xa7, 0xbc, 0xe7, 0x06, 0x89,
-	0x6b, 0xc4, 0x8e, 0x4f, 0xa3, 0x74, 0x94, 0xb1, 0x8d, 0x2e, 0x40, 0x51, 0x44, 0x3a, 0x28, 0x0b,
-	0x92, 0x0a, 0x63, 0xec, 0x27, 0x3a, 0x05, 0x6d, 0x8d, 0x97, 0x09, 0xe1, 0x87, 0xb1, 0x63, 0x25,
-	0xab, 0x3f, 0x96, 0xbf, 0x92, 0xcc, 0x07, 0x00, 0xcf, 0x08, 0xcd, 0x37, 0xb7, 0x27, 0x62, 0x7e,
-	0x00, 0x75, 0x8e, 0x0b, 0xab, 0xcd, 0x5c, 0x93, 0x51, 0x1a, 0x42, 0xc8, 0xfc, 0x0c, 0x60, 0x98,
-	0x94, 0x8b, 0x14, 0x5d, 0xf2, 0x76, 0xd7, 0x23, 0x38, 0x7c, 0x4a, 0x96, 0x84, 0x92, 0xf2, 0xd5,
-	0x7f, 0x93, 0x00, 0x7a, 0xe3, 0xab, 0x6e, 0xb0, 0x5a, 0x61, 0xdf, 0x45, 0x67, 0xa0, 0xd2, 0x34,
-	0xcc, 0x16, 0x3f, 0xea, 0x34, 0xf9, 0x86, 0x0a, 0xd8, 0xba, 0x4e, 0x43, 0x32, 0xe2, 0x0c, 0xc6,
-	0x74, 0x31, 0xc5, 0x62, 0xeb, 0x4d, 0x2b, 0x9b, 0x7d, 0x2b, 0x0f, 0x86, 0x75, 0xe1, 0xa7, 0x23,
-	0xce, 0x30, 0x9f, 0x80, 0xca, 0xfa, 0x50, 0x1d, 0x2a, 0x2f, 0x07, 0xbd, 0xc1, 0xe5, 0xab, 0x81,
-	0x7e, 0x0b, 0x55, 0x41, 0x7d, 0x7e, 0xf9, 0xed, 0x40, 0x97, 0x50, 0x0d, 0xb4, 0xbe, 0x73, 0x31,
-	0x76, 0x74, 0x19, 0x55, 0x40, 0x19, 0xbe, 0xbc, 0xd6, 0x15, 0x04, 0x70, 0xf0, 0xd4, 0xe9, 0x3b,
-	0xd7, 0x8e, 0xae, 0x9a, 0xbf, 0x4b, 0x70, 0xf8, 0x0a, 0xd3, 0xe9, 0x7c, 0x73, 0x44, 0x16, 0x68,
-	0x64, 0x4d, 0x7c, 0x2a, 0x5c, 0xb6, 0xb8, 0xcb, 0x1d, 0x8a, 0xe5, 0x30, 0x7c, 0x94, 0xd1, 0xfe,
-	0x83, 0xd5, 0xaf, 0x41, 0xe3, 0x9d, 0xff, 0xd7, 0xeb, 0x87, 0x70, 0xfc, 0x82, 0xd0, 0xc8, 0x9b,
-	0xc6, 0x1b, 0xb3, 0x2d, 0xa8, 0xac, 0xb2, 0x92, 0xb8, 0xd1, 0xfc, 0xd3, 0xfc, 0x02, 0x1a, 0x3d,
-	0x92, 0x8e, 0xd9, 0x4d, 0x0d, 0xb1, 0x17, 0xfd, 0xdb, 0x5b, 0xed, 0xfc, 0xa5, 0x81, 0xd2, 0x1b,
-	0x5f, 0xa1, 0xae, 0x78, 0x22, 0xee, 0xee, 0x6d, 0xc8, 0x61, 0x8f, 0x92, 0x71, 0xbb, 0x18, 0x47,
-	0x61, 0xc6, 0xd4, 0x7f, 0xfe, 0xe3, 0xcf, 0x5f, 0x65, 0x40, 0x55, 0x7b, 0xfd, 0x89, 0xcd, 0x66,
-	0x1c, 0xbd, 0x00, 0x95, 0x45, 0x1e, 0xe9, 0x9c, 0xbc, 0x95, 0x7e, 0xa3, 0x44, 0xd6, 0x3c, 0xe1,
-	0x1a, 0xef, 0x19, 0x3a, 0xd3, 0x98, 0x66, 0x19, 0xb2, 0x5f, 0x7b, 0xee, 0x9b, 0xc7, 0x52, 0x1b,
-	0xf5, 0xa1, 0x22, 0x62, 0x55, 0x6a, 0xab, 0xf9, 0xb6, 0xf0, 0x99, 0x77, 0xb8, 0xea, 0x21, 0xaa,
-	0x6f, 0xa9, 0xa2, 0x3e, 0x68, 0xfc, 0x65, 0x40, 0xd9, 0x56, 0xb6, 0x5f, 0x89, 0x52, 0x7b, 0x2d,
-	0x2e, 0x84, 0xda, 0x7b, 0xf6, 0xd0, 0x10, 0xaa, 0x57, 0x3e, 0x0e, 0xe3, 0x79, 0x40, 0x4b, 0xcd,
-	0x95, 0xa9, 0x36, 0xb9, 0xea, 0x11, 0x6a, 0x30, 0xd5, 0x38, 0x57, 0xe9, 0x82, 0xf2, 0x8c, 0x50,
-	0x74, 0xcc, 0xdd, 0x15, 0x21, 0x37, 0xf4, 0xa2, 0x20, 0xb6, 0x77, 0x8f, 0xf7, 0xdf, 0x41, 0xb7,
-	0x59, 0x3f, 0x1b, 0x35, 0xfb, 0xf5, 0x82, 0xa4, 0x4f, 0xda, 0xed, 0x37, 0xa8, 0x0f, 0xca, 0x30,
-	0xc9, 0x45, 0x8a, 0x90, 0x97, 0x5a, 0xb9, 0xcf, 0xa5, 0xee, 0x1a, 0xfb, 0x52, 0xec, 0x02, 0x2e,
-	0xe1, 0x20, 0x8b, 0x3c, 0x42, 0x5c, 0x70, 0x27, 0xff, 0xa5, 0x9a, 0xc2, 0x5e, 0xfb, 0x2d, 0xf6,
-	0xbe, 0x04, 0x8d, 0x47, 0xab, 0xf4, 0xc8, 0xd0, 0x7e, 0xfc, 0xcc, 0x5b, 0x1f, 0x4b, 0x6c, 0x14,
-	0x44, 0x16, 0xfe, 0x61, 0x14, 0x6e, 0x24, 0x66, 0x77, 0x14, 0x44, 0x58, 0xbe, 0x79, 0xf4, 0xdd,
-	0xe9, 0xcc, 0xa3, 0xf3, 0x64, 0x62, 0x4d, 0x83, 0x95, 0xbd, 0x0a, 0xe2, 0x64, 0x81, 0xed, 0x29,
-	0xa1, 0xc5, 0xbf, 0xe2, 0xc9, 0x01, 0xff, 0xf5, 0xe9, 0xdf, 0x01, 0x00, 0x00, 0xff, 0xff, 0x74,
-	0xef, 0x60, 0x91, 0xd8, 0x07, 0x00, 0x00,
+	// 838 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x95, 0xcb, 0x6e, 0xdb, 0x46,
+	0x14, 0x86, 0x43, 0x52, 0x8c, 0xe5, 0x23, 0xd9, 0x66, 0x4e, 0xd4, 0x40, 0x61, 0x52, 0xdb, 0x99,
+	0x2c, 0xea, 0xaa, 0xb5, 0xd8, 0xa8, 0x57, 0x18, 0xcd, 0x22, 0x75, 0x8c, 0x00, 0x8d, 0xd3, 0x18,
+	0x54, 0x9b, 0x02, 0xdd, 0x14, 0x63, 0x71, 0x2a, 0x13, 0xb2, 0x86, 0x2c, 0x39, 0x52, 0x40, 0x04,
+	0xd9, 0x74, 0xdf, 0x55, 0xd1, 0x27, 0xeb, 0x2b, 0xf4, 0x15, 0xba, 0x2f, 0xe6, 0x42, 0x51, 0xb6,
+	0xcc, 0x38, 0x2b, 0x91, 0xe7, 0xf2, 0xcd, 0x3f, 0x33, 0xe7, 0xa7, 0x00, 0xd3, 0x2c, 0x11, 0xc9,
+	0xe9, 0xec, 0xb7, 0x60, 0x32, 0xcf, 0xfb, 0xea, 0x05, 0x9d, 0xc9, 0x3c, 0xf7, 0xef, 0x8e, 0x93,
+	0x64, 0x7c, 0xce, 0x82, 0x45, 0x9e, 0xf2, 0x42, 0xe7, 0xfd, 0x7b, 0x97, 0x53, 0x6c, 0x9a, 0x8a,
+	0x32, 0x79, 0xdf, 0x24, 0x69, 0x1a, 0x07, 0x94, 0xf3, 0x44, 0x50, 0x11, 0x27, 0xdc, 0xa0, 0xfd,
+	0x4f, 0xd5, 0xcf, 0x68, 0x7f, 0xcc, 0xf8, 0x7e, 0xfe, 0x9a, 0x8e, 0xc7, 0x2c, 0x0b, 0x92, 0x54,
+	0x55, 0xac, 0x56, 0x93, 0xa7, 0xd0, 0x7c, 0xc1, 0x04, 0x8d, 0xa8, 0xa0, 0x78, 0x0f, 0xd6, 0xc7,
+	0x59, 0x3a, 0xfa, 0x95, 0x46, 0x51, 0xd6, 0xb5, 0x76, 0xad, 0xbd, 0xf5, 0xb0, 0x29, 0x03, 0x4f,
+	0xa2, 0x28, 0x93, 0xc9, 0x33, 0x21, 0x52, 0x9d, 0xb4, 0x75, 0x52, 0x06, 0x64, 0x92, 0x44, 0xd0,
+	0xf8, 0x21, 0x89, 0x98, 0x2c, 0x3a, 0x8d, 0x79, 0x74, 0x81, 0x20, 0x03, 0x8a, 0xd0, 0x01, 0x37,
+	0x17, 0x54, 0x30, 0xd3, 0xad, 0x5f, 0xf0, 0x63, 0x68, 0x4e, 0x8d, 0x80, 0xae, 0xb3, 0x6b, 0xed,
+	0xb5, 0x06, 0x1b, 0x7d, 0x79, 0x4e, 0xa5, 0xaa, 0x70, 0x91, 0x26, 0xdf, 0x42, 0xeb, 0xfb, 0x24,
+	0xe6, 0x21, 0xfb, 0x7d, 0xc6, 0x72, 0x81, 0x9b, 0x60, 0xc7, 0x91, 0x59, 0xc5, 0x8e, 0x23, 0xfc,
+	0x10, 0x1a, 0x3c, 0x89, 0x34, 0xbe, 0x35, 0x58, 0x57, 0x14, 0xa9, 0x2a, 0x54, 0x61, 0xb2, 0x0d,
+	0xed, 0x63, 0x46, 0xe7, 0xac, 0xa6, 0x9d, 0xec, 0x43, 0x5b, 0x55, 0xb3, 0x3c, 0x4d, 0x78, 0xce,
+	0x16, 0x38, 0xeb, 0x6a, 0xdc, 0x9f, 0x16, 0x6c, 0x1d, 0x9e, 0xcf, 0x72, 0xc1, 0xb2, 0x45, 0xcb,
+	0x97, 0xe0, 0xca, 0x5c, 0xde, 0xb5, 0x76, 0x9d, 0xbd, 0xd6, 0x60, 0x47, 0xf5, 0x5c, 0x2a, 0x52,
+	0x8c, 0xfc, 0x88, 0x8b, 0xac, 0x08, 0x75, 0xb5, 0x7f, 0x08, 0x50, 0x05, 0xd1, 0x03, 0x67, 0xc2,
+	0x0a, 0x23, 0x4c, 0x3e, 0xe2, 0x0e, 0xb8, 0x73, 0x7a, 0x3e, 0xbb, 0x62, 0x67, 0x3a, 0x7e, 0x60,
+	0x7f, 0x63, 0x91, 0x6d, 0x80, 0x67, 0x4c, 0x94, 0x9b, 0x5b, 0x81, 0x90, 0x87, 0xd0, 0x52, 0x79,
+	0x23, 0xb5, 0x53, 0x32, 0x65, 0x49, 0xdb, 0x80, 0xc8, 0x17, 0x00, 0xc3, 0x77, 0x40, 0xaa, 0x2e,
+	0x7b, 0xb9, 0xeb, 0x01, 0x6c, 0x3c, 0x65, 0xe7, 0x4c, 0xb0, 0xfa, 0xd5, 0x5f, 0x02, 0x0e, 0x99,
+	0x58, 0xdc, 0x69, 0xcd, 0x0d, 0x2e, 0xcf, 0x82, 0xfd, 0xee, 0x59, 0xf8, 0x08, 0x3e, 0xd0, 0x6b,
+	0x5e, 0xc3, 0x24, 0x7f, 0x5b, 0xe0, 0x1e, 0xcd, 0x19, 0x17, 0xf8, 0x10, 0x1a, 0xa2, 0x48, 0xf5,
+	0x8e, 0x37, 0x07, 0x5b, 0x8a, 0xac, 0x32, 0xfd, 0x1f, 0x8b, 0x94, 0x85, 0x2a, 0x89, 0x7b, 0xd0,
+	0x58, 0x5a, 0xbe, 0xd3, 0xd7, 0x56, 0xeb, 0x97, 0x3e, 0xec, 0x3f, 0xe1, 0x45, 0xa8, 0x2a, 0xc8,
+	0x63, 0x68, 0xc8, 0x3e, 0x6c, 0xc1, 0xda, 0x4f, 0x7c, 0xc2, 0x93, 0xd7, 0xdc, 0xbb, 0x81, 0x4d,
+	0x68, 0xc8, 0x11, 0xf5, 0x2c, 0x5c, 0x07, 0x57, 0x8d, 0x9b, 0x67, 0xe3, 0x1a, 0x38, 0x43, 0x26,
+	0x3c, 0x07, 0x01, 0x6e, 0x6a, 0xd1, 0x5e, 0x83, 0x3c, 0x82, 0x8d, 0x9f, 0xa9, 0x18, 0x9d, 0x2d,
+	0x6e, 0x64, 0x17, 0x5c, 0x26, 0xd5, 0x98, 0x81, 0x83, 0x4a, 0x5f, 0xa8, 0x13, 0xe4, 0x13, 0xd8,
+	0x7a, 0xc1, 0x44, 0x16, 0x8f, 0xf2, 0x45, 0x53, 0x17, 0xd6, 0xa6, 0x3a, 0x64, 0x2e, 0xb2, 0x7c,
+	0x25, 0x5f, 0x41, 0xfb, 0x39, 0x2b, 0x5e, 0xc9, 0x0b, 0x3a, 0xa1, 0x71, 0xf6, 0xbe, 0x97, 0x39,
+	0xf8, 0xcf, 0x05, 0xe7, 0xf9, 0xab, 0x21, 0x1e, 0x1a, 0x4b, 0xdf, 0x59, 0x39, 0x82, 0x23, 0xf9,
+	0x29, 0xf2, 0x6f, 0x55, 0x53, 0x68, 0xc4, 0x10, 0xef, 0x8f, 0x7f, 0xfe, 0xfd, 0xcb, 0x06, 0x6c,
+	0x06, 0xf3, 0x47, 0x81, 0x1c, 0x6d, 0x3c, 0xd1, 0xc7, 0x81, 0x9e, 0x2a, 0x5e, 0x32, 0xaf, 0x5f,
+	0x83, 0x25, 0xdb, 0x8a, 0xd1, 0xf5, 0x3d, 0xc9, 0x18, 0x69, 0xeb, 0x04, 0x6f, 0xe2, 0xe8, 0xed,
+	0x81, 0xb2, 0x1d, 0x1e, 0xc3, 0x9a, 0x31, 0x54, 0xad, 0xb2, 0xce, 0x55, 0xb6, 0x23, 0xb7, 0x15,
+	0x78, 0x03, 0x5b, 0x4b, 0x60, 0x3c, 0x36, 0x97, 0x84, 0x7a, 0x37, 0xcb, 0xdf, 0x87, 0x5a, 0x85,
+	0x5d, 0x05, 0xc2, 0xde, 0x8a, 0x42, 0x3c, 0x81, 0xe6, 0x90, 0xd3, 0x34, 0x3f, 0x4b, 0x44, 0xad,
+	0xb8, 0x3a, 0x6a, 0x47, 0x51, 0x37, 0xb1, 0x2d, 0xa9, 0x79, 0x49, 0x39, 0x04, 0xe7, 0x19, 0x13,
+	0xa8, 0x67, 0xb5, 0xb2, 0xb7, 0xef, 0x55, 0x01, 0xb3, 0xbd, 0xbb, 0xaa, 0xff, 0x36, 0xde, 0x92,
+	0xfd, 0x72, 0x3e, 0x83, 0x37, 0x13, 0x56, 0x3c, 0xee, 0xf5, 0xde, 0xe2, 0xb1, 0x1a, 0x3f, 0x03,
+	0xa9, 0xec, 0x5d, 0x2b, 0xe5, 0xbe, 0x42, 0xdd, 0xf1, 0x57, 0x51, 0x07, 0x56, 0x0f, 0x5f, 0x96,
+	0x33, 0x8c, 0xa8, 0x80, 0x17, 0x9c, 0x5f, 0xcb, 0x34, 0xf2, 0x7a, 0x57, 0xc8, 0xfb, 0x1a, 0x5c,
+	0x65, 0x84, 0xda, 0x23, 0xd3, 0xeb, 0x5c, 0x30, 0x0b, 0xb9, 0xf1, 0x99, 0x25, 0x47, 0xc1, 0xd8,
+	0xe1, 0x9a, 0x51, 0xb8, 0x64, 0x9a, 0x8b, 0xa3, 0x60, 0xfc, 0xf2, 0xdd, 0x83, 0x5f, 0x76, 0xc6,
+	0xb1, 0x38, 0x9b, 0x9d, 0xf6, 0x47, 0xc9, 0x34, 0x98, 0x26, 0xf9, 0x6c, 0x42, 0x83, 0x11, 0x13,
+	0xd5, 0x7f, 0xf0, 0xe9, 0x4d, 0xf5, 0xf4, 0xf9, 0xff, 0x01, 0x00, 0x00, 0xff, 0xff, 0xc5, 0x4d,
+	0xfb, 0x8f, 0xd1, 0x07, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -779,7 +853,7 @@ type KVSClient interface {
 	Leave(ctx context.Context, in *LeaveRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Snapshot(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
-	Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Watch(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (KVS_WatchClient, error)
 	Metrics(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*MetricsResponse, error)
@@ -847,9 +921,9 @@ func (c *kVSClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOp
 	return out, nil
 }
 
-func (c *kVSClient) Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *kVSClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/kvs.KVS/Put", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/kvs.KVS/Set", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -914,7 +988,7 @@ type KVSServer interface {
 	Leave(context.Context, *LeaveRequest) (*empty.Empty, error)
 	Snapshot(context.Context, *empty.Empty) (*empty.Empty, error)
 	Get(context.Context, *GetRequest) (*GetResponse, error)
-	Put(context.Context, *PutRequest) (*empty.Empty, error)
+	Set(context.Context, *SetRequest) (*empty.Empty, error)
 	Delete(context.Context, *DeleteRequest) (*empty.Empty, error)
 	Watch(*empty.Empty, KVS_WatchServer) error
 	Metrics(context.Context, *empty.Empty) (*MetricsResponse, error)
@@ -942,8 +1016,8 @@ func (*UnimplementedKVSServer) Snapshot(ctx context.Context, req *empty.Empty) (
 func (*UnimplementedKVSServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (*UnimplementedKVSServer) Put(ctx context.Context, req *PutRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented")
+func (*UnimplementedKVSServer) Set(ctx context.Context, req *SetRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
 func (*UnimplementedKVSServer) Delete(ctx context.Context, req *DeleteRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
@@ -1067,20 +1141,20 @@ func _KVS_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _KVS_Put_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PutRequest)
+func _KVS_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KVSServer).Put(ctx, in)
+		return srv.(KVSServer).Set(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/kvs.KVS/Put",
+		FullMethod: "/kvs.KVS/Set",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KVSServer).Put(ctx, req.(*PutRequest))
+		return srv.(KVSServer).Set(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1171,8 +1245,8 @@ var _KVS_serviceDesc = grpc.ServiceDesc{
 			Handler:    _KVS_Get_Handler,
 		},
 		{
-			MethodName: "Put",
-			Handler:    _KVS_Put_Handler,
+			MethodName: "Set",
+			Handler:    _KVS_Set_Handler,
 		},
 		{
 			MethodName: "Delete",

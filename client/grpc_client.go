@@ -129,8 +129,8 @@ func (c *GRPCClient) Get(req *protobuf.GetRequest, opts ...grpc.CallOption) (*pr
 	}
 }
 
-func (c *GRPCClient) Put(req *protobuf.PutRequest, opts ...grpc.CallOption) error {
-	if _, err := c.client.Put(c.ctx, req, opts...); err != nil {
+func (c *GRPCClient) Set(req *protobuf.SetRequest, opts ...grpc.CallOption) error {
+	if _, err := c.client.Set(c.ctx, req, opts...); err != nil {
 		return err
 	}
 
