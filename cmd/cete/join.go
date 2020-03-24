@@ -51,10 +51,8 @@ func execJoin(ctx *cli.Context) error {
 	}
 
 	req := &protobuf.JoinRequest{
-		Id:       id,
-		BindAddr: nodeResp.Node.BindAddr,
-		GrpcAddr: nodeResp.Node.GrpcAddr,
-		HttpAddr: nodeResp.Node.HttpAddr,
+		Id:   id,
+		Node: nodeResp.Node,
 	}
 
 	c, err := client.NewGRPCClient(grpcAddr)

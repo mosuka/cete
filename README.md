@@ -113,9 +113,11 @@ The result of the above command is:
 {
   "node": {
     "bind_addr": ":7000",
-    "grpc_addr": ":9000",
-    "http_addr": ":8000",
-    "state": "Leader"
+    "state": "Leader",
+    "metadata": {
+      "grpc_addr": ":9000",
+      "http_addr": ":8000"
+    }
   }
 }
 ```
@@ -201,21 +203,27 @@ You can see the result in JSON format. The result of the above command is:
   "nodes": {
     "node1": {
       "bind_addr": ":7000",
-      "grpc_addr": ":9000",
-      "http_addr": ":8000",
-      "state": "Leader"
+      "state": "Leader",
+      "metadata": {
+        "grpc_addr": ":9000",
+        "http_addr": ":8000"
+      }
     },
     "node2": {
       "bind_addr": ":7001",
-      "grpc_addr": ":9001",
-      "http_addr": ":8001",
-      "state": "Follower"
+      "state": "Follower",
+      "metadata": {
+        "grpc_addr": ":9001",
+        "http_addr": ":8001"
+      }
     },
     "node3": {
       "bind_addr": ":7002",
-      "grpc_addr": ":9002",
-      "http_addr": ":8002",
-      "state": "Follower"
+      "state": "Follower",
+      "metadata": {
+        "grpc_addr": ":9002",
+        "http_addr": ":8002"
+      }
     }
   }
 }
@@ -235,8 +243,10 @@ or, you can use the RESTful API as follows:
 $ curl -X PUT 'http://127.0.0.1:8000/v1/cluster/node2' --data-binary '
 {
   "bind_addr": ":7001",
-  "grpc_addr": ":9001",
-  "http_addr": ":8001"
+  "metadata": {
+    "grpc_addr": ":9001",
+    "http_addr": ":8001"
+  }
 }
 '
 ```

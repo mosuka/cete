@@ -24,15 +24,17 @@ import (
 )
 
 func init() {
-	registry.RegisterType("map[string]interface {}", reflect.TypeOf((map[string]interface{})(nil)))
-
 	registry.RegisterType("protobuf.JoinRequest", reflect.TypeOf(protobuf.JoinRequest{}))
 	registry.RegisterType("protobuf.LeaveRequest", reflect.TypeOf(protobuf.LeaveRequest{}))
 	registry.RegisterType("protobuf.GetRequest", reflect.TypeOf(protobuf.GetRequest{}))
-	registry.RegisterType("protobuf.PutRequest", reflect.TypeOf(protobuf.PutRequest{}))
+	registry.RegisterType("protobuf.SetRequest", reflect.TypeOf(protobuf.SetRequest{}))
 	registry.RegisterType("protobuf.DeleteRequest", reflect.TypeOf(protobuf.DeleteRequest{}))
 	registry.RegisterType("protobuf.KeyValuePair", reflect.TypeOf(protobuf.KeyValuePair{}))
+	registry.RegisterType("protobuf.SetMetadataRequest", reflect.TypeOf(protobuf.SetMetadataRequest{}))
+	registry.RegisterType("protobuf.DeleteMetadataRequest", reflect.TypeOf(protobuf.DeleteMetadataRequest{}))
+	registry.RegisterType("protobuf.Metadata", reflect.TypeOf(protobuf.Metadata{}))
 	registry.RegisterType("protobuf.Node", reflect.TypeOf(protobuf.Node{}))
+	registry.RegisterType("map[string]interface {}", reflect.TypeOf((map[string]interface{})(nil)))
 }
 
 func MarshalAny(message *any.Any) (interface{}, error) {

@@ -32,7 +32,7 @@ service KVS {
     rpc Join (JoinRequest) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             put: "/v1/cluster/{id}"
-            body: "*"
+            body: "node"
         };
     }
     rpc Cluster (google.protobuf.Empty) returns (ClusterResponse) {
@@ -57,7 +57,7 @@ service KVS {
             get: "/v1/data/{key=**}"
         };
     }
-    rpc Put (PutRequest) returns (google.protobuf.Empty) {
+    rpc Set (SetRequest) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             put: "/v1/data/{key=**}"
             body: "*"
@@ -78,18 +78,25 @@ service KVS {
     }
 }
 
+message Metadata {
+    string grpc_addr = 1;
+    string http_addr = 2;
+}
+
 message Node {
     string bind_addr = 1;
-    string grpc_addr = 2;
-    string http_addr = 3;
-    string state = 4;
+//    string grpc_addr = 2;
+//    string http_addr = 3;
+    string state = 2;
+    Metadata metadata = 3;
 }
 
 message JoinRequest {
     string id = 1;
-    string bind_addr = 2;
-    string grpc_addr = 3;
-    string http_addr = 4;
+//    string bind_addr = 2;
+//    string grpc_addr = 3;
+//    string http_addr = 4;
+    Node node = 2;
 }
 
 message LeaveRequest {
@@ -112,7 +119,7 @@ message GetResponse {
     bytes value = 1;
 }
 
-message PutRequest {
+message SetRequest {
     string key = 1;
     bytes value = 2;
 }
@@ -121,28 +128,30 @@ message DeleteRequest {
     string key = 1;
 }
 
-message KVSCommand {
+
+message SetMetadataRequest {
+    string id = 1;
+    Metadata metadata = 2;
+}
+
+message DeleteMetadataRequest {
+    string id = 1;
+}
+
+message Event {
     enum Type {
-        UNKNOWN = 0;
-        JOIN = 1;
-        LEAVE = 2;
-        PUT = 3;
-        DELETE = 4;
+        Unknown = 0;
+        Join = 1;
+        Leave = 2;
+        Set = 3;
+        Delete = 4;
     }
     Type type = 1;
     google.protobuf.Any data = 2;
 }
 
 message WatchResponse {
-    enum Event {
-        UNKNOWN = 0;
-        JOIN = 1;
-        LEAVE = 2;
-        PUT = 3;
-        DELETE = 4;
-    }
     Event event = 1;
-    google.protobuf.Any data = 2;
 }
 
 message MetricsResponse {

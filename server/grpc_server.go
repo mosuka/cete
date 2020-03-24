@@ -28,7 +28,7 @@ import (
 
 type GRPCServer struct {
 	address  string
-	service  protobuf.KVSServer
+	service  *GRPCService
 	server   *grpc.Server
 	listener net.Listener
 
@@ -82,13 +82,21 @@ func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (
 }
 
 func (s *GRPCServer) Start() error {
-	go s.server.Serve(s.listener)
+	s.service.Start()
+
+	go func() {
+		_ = s.server.Serve(s.listener)
+	}()
 
 	s.logger.Info("gRPC server started", zap.String("addr", s.address))
 	return nil
 }
 
 func (s *GRPCServer) Stop() error {
+	if err := s.service.Stop(); err != nil {
+		s.logger.Error("failed to stop service", zap.Error(err))
+	}
+
 	//s.server.GracefulStop()
 	s.server.Stop()
 
