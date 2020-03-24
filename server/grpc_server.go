@@ -17,13 +17,16 @@ package server
 import (
 	"math"
 	"net"
+	"time"
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/mosuka/cete/metric"
 	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 type GRPCServer struct {
@@ -53,6 +56,15 @@ func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (
 				grpczap.UnaryServerInterceptor(grpcLogger),
 			),
 		),
+		grpc.KeepaliveParams(
+			keepalive.ServerParameters{
+				//MaxConnectionIdle:     0,
+				//MaxConnectionAge:      0,
+				//MaxConnectionAgeGrace: 0,
+				Time:    5 * time.Second,
+				Timeout: 5 * time.Second,
+			},
+		),
 	)
 
 	service, err := NewGRPCService(raftServer, logger)
@@ -65,6 +77,7 @@ func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (
 
 	// Initialize all metrics.
 	metric.GrpcMetrics.InitializeMetrics(server)
+	grpc_prometheus.Register(server)
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
