@@ -18,12 +18,14 @@ import (
 	"context"
 	"log"
 	"math"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/mosuka/cete/errors"
 	"github.com/mosuka/cete/protobuf"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
 
@@ -37,7 +39,10 @@ type GRPCClient struct {
 }
 
 func NewGRPCClient(address string) (*GRPCClient, error) {
-	baseCtx := context.TODO()
+	return NewGRPCClientWithContext(address, context.TODO())
+}
+
+func NewGRPCClientWithContext(address string, baseCtx context.Context) (*GRPCClient, error) {
 	ctx, cancel := context.WithCancel(baseCtx)
 
 	dialOpts := []grpc.DialOption{
@@ -45,6 +50,13 @@ func NewGRPCClient(address string) (*GRPCClient, error) {
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallSendMsgSize(math.MaxInt64),
 			grpc.MaxCallRecvMsgSize(math.MaxInt64),
+		),
+		grpc.WithKeepaliveParams(
+			keepalive.ClientParameters{
+				Time:                1 * time.Second,
+				Timeout:             5 * time.Second,
+				PermitWithoutStream: true,
+			},
 		),
 	}
 
