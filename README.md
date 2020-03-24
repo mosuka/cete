@@ -243,8 +243,10 @@ or, you can use the RESTful API as follows:
 $ curl -X PUT 'http://127.0.0.1:8000/v1/cluster/node2' --data-binary '
 {
   "bind_addr": ":7001",
-  "grpc_addr": ":9001",
-  "http_addr": ":8001"
+  "metadata": {
+    "grpc_addr": ":9001",
+    "http_addr": ":8001"
+  }
 }
 '
 ```
