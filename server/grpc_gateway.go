@@ -92,6 +92,13 @@ func (s *GRPCGateway) Start() error {
 	return nil
 }
 
+func (s *GRPCGateway) StartTLS(certFile string, keyFile string) error {
+	go http.ServeTLS(s.listener, s.mux, certFile, keyFile)
+
+	s.logger.Info("gRPC gateway started", zap.String("addr", s.grpcGatewayAddr))
+	return nil
+}
+
 func (s *GRPCGateway) Stop() error {
 	defer s.cancel()
 

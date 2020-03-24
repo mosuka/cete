@@ -70,6 +70,16 @@ func main() {
 					Usage: "Existing gRPC server listen address to join to the cluster",
 				},
 				cli.StringFlag{
+					Name:  "cert-file",
+					Value: "",
+					Usage: "Path to the client server TLS cert file",
+				},
+				cli.StringFlag{
+					Name:  "key-file",
+					Value: "",
+					Usage: "Path to the client server TLS key file",
+				},
+				cli.StringFlag{
 					Name:  "log-level",
 					Value: "INFO",
 					Usage: "Log level",

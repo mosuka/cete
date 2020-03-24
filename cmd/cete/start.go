@@ -37,6 +37,9 @@ func execStart(ctx *cli.Context) error {
 	dataDir := ctx.String("data-dir")
 	peerGrpcAddr := ctx.String("peer-grpc-addr")
 
+	certFile := ctx.String("cert-file")
+	keyFile := ctx.String("key-file")
+
 	logger := log.NewLogger(
 		ctx.String("log-level"),
 		ctx.String("log-file"),
@@ -85,7 +88,12 @@ func execStart(ctx *cli.Context) error {
 		return err
 	}
 
-	if err := grpcGateway.Start(); err != nil {
+	if certFile == "" && keyFile == "" {
+		err = grpcGateway.Start()
+	} else {
+		err = grpcGateway.StartTLS(certFile, keyFile)
+	}
+	if err != nil {
 		logger.Error("failed to start gRPC gateway", zap.Error(err))
 		return err
 	}

@@ -151,3 +151,8 @@ clean:
 	rm -rf ./bin
 	rm -rf ./data
 	rm -rf ./dist
+
+.PHONY: cert
+cert:
+	@echo ">> generating certification"
+	go run $(GOROOT)/src/crypto/tls/generate_cert.go --rsa-bits=2048 --host=localhost
