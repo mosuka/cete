@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Add keepalive options #24 @mosuka
 - Improve cluster watching #22 @mosuka
 - Refactoring #21 @mosuka
 - Update Makefile #20 @mosuka
