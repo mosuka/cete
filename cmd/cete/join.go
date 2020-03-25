@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 
 	"github.com/mosuka/cete/client"
@@ -24,6 +25,8 @@ import (
 
 func execJoin(ctx *cli.Context) error {
 	grpcAddr := ctx.String("grpc-addr")
+	certFile := ctx.String("cert-file")
+	certHostname := ctx.String("cert-hostname")
 
 	id := ctx.Args().Get(0)
 	if id == "" {
@@ -37,7 +40,7 @@ func execJoin(ctx *cli.Context) error {
 		return err
 	}
 
-	t, err := client.NewGRPCClient(targetGrpcAddr)
+	t, err := client.NewGRPCClientWithContextTLS(targetGrpcAddr, context.Background(), certFile, certHostname)
 	if err != nil {
 		return err
 	}
@@ -55,7 +58,7 @@ func execJoin(ctx *cli.Context) error {
 		Node: nodeResp.Node,
 	}
 
-	c, err := client.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClientWithContextTLS(grpcAddr, context.Background(), certFile, certHostname)
 	if err != nil {
 		return err
 	}

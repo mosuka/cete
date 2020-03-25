@@ -113,11 +113,11 @@ The result of the above command is:
 {
   "node": {
     "bind_addr": ":7000",
-    "state": "Leader",
     "metadata": {
       "grpc_addr": ":9000",
       "http_addr": ":8000"
-    }
+    },
+    "state": "Leader"
   }
 }
 ```
@@ -200,31 +200,34 @@ You can see the result in JSON format. The result of the above command is:
 
 ```json
 {
-  "nodes": {
-    "node1": {
-      "bind_addr": ":7000",
-      "state": "Leader",
-      "metadata": {
-        "grpc_addr": ":9000",
-        "http_addr": ":8000"
+  "cluster": {
+    "nodes": {
+      "node1": {
+        "bind_addr": ":7000",
+        "metadata": {
+          "grpc_addr": ":9000",
+          "http_addr": ":8000"
+        },
+        "state": "Leader"
+      },
+      "node2": {
+        "bind_addr": ":7001",
+        "metadata": {
+          "grpc_addr": ":9001",
+          "http_addr": ":8001"
+        },
+        "state": "Follower"
+      },
+      "node3": {
+        "bind_addr": ":7002",
+        "metadata": {
+          "grpc_addr": ":9002",
+          "http_addr": ":8002"
+        },
+        "state": "Follower"
       }
     },
-    "node2": {
-      "bind_addr": ":7001",
-      "state": "Follower",
-      "metadata": {
-        "grpc_addr": ":9001",
-        "http_addr": ":8001"
-      }
-    },
-    "node3": {
-      "bind_addr": ":7002",
-      "state": "Follower",
-      "metadata": {
-        "grpc_addr": ":9002",
-        "http_addr": ":8002"
-      }
-    }
+    "leader": "node1"
   }
 }
 ```

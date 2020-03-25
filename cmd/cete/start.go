@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -39,6 +40,7 @@ func execStart(ctx *cli.Context) error {
 
 	certFile := ctx.String("cert-file")
 	keyFile := ctx.String("key-file")
+	certHostname := ctx.String("cert-hostname")
 
 	logger := log.NewLogger(
 		ctx.String("log-level"),
@@ -63,13 +65,15 @@ func execStart(ctx *cli.Context) error {
 		return err
 	}
 
-	grpcServer, err := server.NewGRPCServer(grpcAddr, raftServer, logger)
+	// TODO: TLS support for gRPC will be done later.
+	//grpcServer, err := server.NewGRPCServer(grpcAddr, raftServer, certFile, keyFile, certHostname, logger)
+	grpcServer, err := server.NewGRPCServer(grpcAddr, raftServer, "", "", "", logger)
 	if err != nil {
 		logger.Error("failed to create gRPC server", zap.String("grpc_addr", grpcAddr), zap.Error(err))
 		return err
 	}
 
-	grpcGateway, err := server.NewGRPCGateway(httpAddr, grpcAddr, logger)
+	grpcGateway, err := server.NewGRPCGateway(httpAddr, grpcAddr, certFile, keyFile, certHostname, logger)
 	if err != nil {
 		logger.Error("failed to create gRPC gateway", zap.String("http_addr", httpAddr), zap.String("grpc_addr", grpcAddr), zap.Error(err))
 		return err
@@ -88,12 +92,7 @@ func execStart(ctx *cli.Context) error {
 		return err
 	}
 
-	if certFile == "" && keyFile == "" {
-		err = grpcGateway.Start()
-	} else {
-		err = grpcGateway.StartTLS(certFile, keyFile)
-	}
-	if err != nil {
+	if err := grpcGateway.Start(); err != nil {
 		logger.Error("failed to start gRPC gateway", zap.Error(err))
 		return err
 	}
@@ -118,7 +117,10 @@ func execStart(ctx *cli.Context) error {
 	} else {
 		joinAddr = peerGrpcAddr
 	}
-	c, err := client.NewGRPCClient(joinAddr)
+
+	// TODO: TLS support for gRPC will be done later.
+	//c, err := client.NewGRPCClientWithContextTLS(joinAddr, context.Background(), certFile, certHostname)
+	c, err := client.NewGRPCClientWithContext(joinAddr, context.Background())
 	if err != nil {
 		logger.Error("failed to create gRPC client", zap.String("addr", joinAddr), zap.Error(err))
 		return err

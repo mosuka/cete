@@ -15,17 +15,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"github.com/mosuka/cete/client"
 	"os"
 
+	"github.com/mosuka/cete/client"
 	"github.com/urfave/cli"
 )
 
 func execMetrics(ctx *cli.Context) error {
 	grpcAddr := ctx.String("grpc-addr")
+	certFile := ctx.String("cert-file")
+	certHostname := ctx.String("cert-hostname")
 
-	c, err := client.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClientWithContextTLS(grpcAddr, context.Background(), certFile, certHostname)
 	if err != nil {
 		return err
 	}

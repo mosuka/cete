@@ -25,6 +25,7 @@ import (
 	"github.com/mosuka/cete/protobuf"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
@@ -43,10 +44,11 @@ func NewGRPCClient(address string) (*GRPCClient, error) {
 }
 
 func NewGRPCClientWithContext(address string, baseCtx context.Context) (*GRPCClient, error) {
-	ctx, cancel := context.WithCancel(baseCtx)
+	return NewGRPCClientWithContextTLS(address, baseCtx, "", "")
+}
 
+func NewGRPCClientWithContextTLS(address string, baseCtx context.Context, certFile string, certHostname string) (*GRPCClient, error) {
 	dialOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallSendMsgSize(math.MaxInt64),
 			grpc.MaxCallRecvMsgSize(math.MaxInt64),
@@ -58,6 +60,18 @@ func NewGRPCClientWithContext(address string, baseCtx context.Context) (*GRPCCli
 				PermitWithoutStream: true,
 			},
 		),
+	}
+
+	ctx, cancel := context.WithCancel(baseCtx)
+
+	if certFile == "" {
+		dialOpts = append(dialOpts, grpc.WithInsecure())
+	} else {
+		creds, err := credentials.NewClientTLSFromFile(certFile, certHostname)
+		if err != nil {
+			return nil, err
+		}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
 	}
 
 	conn, err := grpc.DialContext(ctx, address, dialOpts...)

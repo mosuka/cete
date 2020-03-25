@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -26,6 +27,8 @@ import (
 
 func execGet(ctx *cli.Context) error {
 	grpcAddr := ctx.String("grpc-addr")
+	certFile := ctx.String("cert-file")
+	certHostname := ctx.String("cert-hostname")
 
 	key := ctx.Args().Get(0)
 	if key == "" {
@@ -37,7 +40,7 @@ func execGet(ctx *cli.Context) error {
 		Key: key,
 	}
 
-	c, err := client.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClientWithContextTLS(grpcAddr, context.Background(), certFile, certHostname)
 	if err != nil {
 		return err
 	}
@@ -49,11 +52,6 @@ func execGet(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// key does not exist
-	//if resp.Value == nil {
-	//	return nil
-	//}
 
 	_, _ = fmt.Fprintln(os.Stdout, fmt.Sprintf("%s", string(resp.Value)))
 

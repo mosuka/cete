@@ -26,7 +26,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/raft"
-	"github.com/mosuka/cete/client"
 	"github.com/mosuka/cete/errors"
 	"github.com/mosuka/cete/marshaler"
 	"github.com/mosuka/cete/protobuf"
@@ -432,31 +431,23 @@ func (s *RaftServer) Leave(id string) error {
 	return nil
 }
 
-func (s *RaftServer) Node() (*protobuf.NodeResponse, error) {
-	cf := s.raft.GetConfiguration()
-	if err := cf.Error(); err != nil {
-		s.logger.Error("failed to get Raft configuration", zap.Error(err))
+func (s *RaftServer) Node() (*protobuf.Node, error) {
+	nodes, err := s.Nodes()
+	if err != nil {
 		return nil, err
 	}
 
-	node := &protobuf.Node{}
-	for _, server := range cf.Configuration().Servers {
-		if server.ID == raft.ServerID(s.nodeId) {
-			node.BindAddr = string(server.Address)
-			node.State = s.raft.State().String()
-			if metadata := s.fsm.getMetadata(s.nodeId); metadata != nil {
-				node.Metadata = metadata
-			}
-			break
-		}
+	node, ok := nodes[s.nodeId]
+	if !ok {
+		return nil, errors.ErrNotFound
 	}
 
-	return &protobuf.NodeResponse{
-		Node: node,
-	}, nil
+	node.State = s.State()
+
+	return node, nil
 }
 
-func (s *RaftServer) Cluster() (*protobuf.ClusterResponse, error) {
+func (s *RaftServer) Nodes() (map[string]*protobuf.Node, error) {
 	cf := s.raft.GetConfiguration()
 	if err := cf.Error(); err != nil {
 		s.logger.Error("failed to get Raft configuration", zap.Error(err))
@@ -465,44 +456,13 @@ func (s *RaftServer) Cluster() (*protobuf.ClusterResponse, error) {
 
 	nodes := make(map[string]*protobuf.Node, 0)
 	for _, server := range cf.Configuration().Servers {
-		if server.ID == raft.ServerID(s.nodeId) {
-			if resp, err := s.Node(); err != nil {
-				s.logger.Error("failed to get node info", zap.Error(err))
-				nodes[string(server.ID)] = resp.Node
-			} else {
-				nodes[string(server.ID)] = resp.Node
-			}
-		} else {
-			node := &protobuf.Node{}
-
-			if metadata := s.fsm.getMetadata(string(server.ID)); metadata != nil {
-				grpcAddr := metadata.GrpcAddr
-				if c, err := client.NewGRPCClient(grpcAddr); err != nil {
-					s.logger.Error("failed to create client", zap.String("addr", grpcAddr), zap.Error(err))
-					node.State = raft.Shutdown.String()
-				} else {
-					if resp, err := c.Node(); err != nil {
-						s.logger.Error("failed to get node info", zap.String("addr", grpcAddr), zap.Error(err))
-						node.State = raft.Shutdown.String()
-					} else {
-						node = resp.Node
-					}
-					if err = c.Close(); err != nil {
-						s.logger.Error("failed to close client", zap.String("addr", grpcAddr), zap.Error(err))
-					}
-				}
-			} else {
-				s.logger.Error("metadata not found", zap.String("id", string(server.ID)))
-				node.State = raft.Shutdown.String()
-			}
-
-			nodes[string(server.ID)] = node
+		nodes[string(server.ID)] = &protobuf.Node{
+			BindAddr: string(server.Address),
+			Metadata: s.fsm.getMetadata(string(server.ID)),
 		}
 	}
 
-	return &protobuf.ClusterResponse{
-		Nodes: nodes,
-	}, nil
+	return nodes, nil
 }
 
 func (s *RaftServer) Snapshot() error {

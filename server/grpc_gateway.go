@@ -16,8 +16,11 @@ package server
 
 import (
 	"context"
+	"google.golang.org/grpc/keepalive"
+	"math"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -50,10 +53,27 @@ type GRPCGateway struct {
 	listener net.Listener
 	mux      *runtime.ServeMux
 
+	certFile string
+	keyFile  string
+
 	logger *zap.Logger
 }
 
-func NewGRPCGateway(grpcGatewayAddr string, grpcAddr string, logger *zap.Logger) (*GRPCGateway, error) {
+func NewGRPCGateway(grpcGatewayAddr string, grpcAddr string, certFile string, keyFile string, certHostname string, logger *zap.Logger) (*GRPCGateway, error) {
+	dialOpts := []grpc.DialOption{
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallSendMsgSize(math.MaxInt64),
+			grpc.MaxCallRecvMsgSize(math.MaxInt64),
+		),
+		grpc.WithKeepaliveParams(
+			keepalive.ClientParameters{
+				Time:                1 * time.Second,
+				Timeout:             5 * time.Second,
+				PermitWithoutStream: true,
+			},
+		),
+	}
+
 	baseCtx := context.TODO()
 	ctx, cancel := context.WithCancel(baseCtx)
 
@@ -61,9 +81,20 @@ func NewGRPCGateway(grpcGatewayAddr string, grpcAddr string, logger *zap.Logger)
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, new(marshaler.CeteMarshaler)),
 		runtime.WithForwardResponseOption(responseFilter),
 	)
-	opts := []grpc.DialOption{grpc.WithInsecure()}
 
-	err := protobuf.RegisterKVSHandlerFromEndpoint(ctx, mux, grpcAddr, opts)
+	// TODO: TLS support for gRPC will be done later.
+	dialOpts = append(dialOpts, grpc.WithInsecure())
+	//if certFile == "" {
+	//	dialOpts = append(dialOpts, grpc.WithInsecure())
+	//} else {
+	//	creds, err := credentials.NewClientTLSFromFile(certFile, certHostname)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
+	//}
+
+	err := protobuf.RegisterKVSHandlerFromEndpoint(ctx, mux, grpcAddr, dialOpts)
 	if err != nil {
 		logger.Error("failed to register KVS handler from endpoint", zap.Error(err))
 		return nil, err
@@ -81,19 +112,22 @@ func NewGRPCGateway(grpcGatewayAddr string, grpcAddr string, logger *zap.Logger)
 		listener:        listener,
 		mux:             mux,
 		cancel:          cancel,
+		certFile:        certFile,
+		keyFile:         keyFile,
 		logger:          logger,
 	}, nil
 }
 
 func (s *GRPCGateway) Start() error {
-	go http.Serve(s.listener, s.mux)
-
-	s.logger.Info("gRPC gateway started", zap.String("addr", s.grpcGatewayAddr))
-	return nil
-}
-
-func (s *GRPCGateway) StartTLS(certFile string, keyFile string) error {
-	go http.ServeTLS(s.listener, s.mux, certFile, keyFile)
+	if s.certFile == "" && s.keyFile == "" {
+		go func() {
+			_ = http.Serve(s.listener, s.mux)
+		}()
+	} else {
+		go func() {
+			_ = http.ServeTLS(s.listener, s.mux, s.certFile, s.keyFile)
+		}()
+	}
 
 	s.logger.Info("gRPC gateway started", zap.String("addr", s.grpcGatewayAddr))
 	return nil
