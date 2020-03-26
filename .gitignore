@@ -25,5 +25,9 @@
 bin/
 dist/
 
+# TLS
+*.pem
+*.csr
+
 cover.out
 cover.html

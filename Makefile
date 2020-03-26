@@ -151,3 +151,8 @@ clean:
 	rm -rf ./bin
 	rm -rf ./data
 	rm -rf ./dist
+
+.PHONY: cert
+cert:
+	@echo ">> generating certification"
+	openssl req -x509 -nodes -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365

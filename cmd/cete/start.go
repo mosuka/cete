@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,6 +37,10 @@ func execStart(ctx *cli.Context) error {
 	httpAddr := ctx.String("http-addr")
 	dataDir := ctx.String("data-dir")
 	peerGrpcAddr := ctx.String("peer-grpc-addr")
+
+	certFile := ctx.String("cert-file")
+	keyFile := ctx.String("key-file")
+	certHostname := ctx.String("cert-hostname")
 
 	logger := log.NewLogger(
 		ctx.String("log-level"),
@@ -60,13 +65,13 @@ func execStart(ctx *cli.Context) error {
 		return err
 	}
 
-	grpcServer, err := server.NewGRPCServer(grpcAddr, raftServer, logger)
+	grpcServer, err := server.NewGRPCServer(grpcAddr, raftServer, certFile, keyFile, certHostname, logger)
 	if err != nil {
 		logger.Error("failed to create gRPC server", zap.String("grpc_addr", grpcAddr), zap.Error(err))
 		return err
 	}
 
-	grpcGateway, err := server.NewGRPCGateway(httpAddr, grpcAddr, logger)
+	grpcGateway, err := server.NewGRPCGateway(httpAddr, grpcAddr, certFile, keyFile, certHostname, logger)
 	if err != nil {
 		logger.Error("failed to create gRPC gateway", zap.String("http_addr", httpAddr), zap.String("grpc_addr", grpcAddr), zap.Error(err))
 		return err
@@ -110,7 +115,8 @@ func execStart(ctx *cli.Context) error {
 	} else {
 		joinAddr = peerGrpcAddr
 	}
-	c, err := client.NewGRPCClient(joinAddr)
+
+	c, err := client.NewGRPCClientWithContextTLS(joinAddr, context.Background(), certFile, certHostname)
 	if err != nil {
 		logger.Error("failed to create gRPC client", zap.String("addr", joinAddr), zap.Error(err))
 		return err

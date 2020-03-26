@@ -113,11 +113,11 @@ The result of the above command is:
 {
   "node": {
     "bind_addr": ":7000",
-    "state": "Leader",
     "metadata": {
       "grpc_addr": ":9000",
       "http_addr": ":8000"
-    }
+    },
+    "state": "Leader"
   }
 }
 ```
@@ -200,31 +200,34 @@ You can see the result in JSON format. The result of the above command is:
 
 ```json
 {
-  "nodes": {
-    "node1": {
-      "bind_addr": ":7000",
-      "state": "Leader",
-      "metadata": {
-        "grpc_addr": ":9000",
-        "http_addr": ":8000"
+  "cluster": {
+    "nodes": {
+      "node1": {
+        "bind_addr": ":7000",
+        "metadata": {
+          "grpc_addr": ":9000",
+          "http_addr": ":8000"
+        },
+        "state": "Leader"
+      },
+      "node2": {
+        "bind_addr": ":7001",
+        "metadata": {
+          "grpc_addr": ":9001",
+          "http_addr": ":8001"
+        },
+        "state": "Follower"
+      },
+      "node3": {
+        "bind_addr": ":7002",
+        "metadata": {
+          "grpc_addr": ":9002",
+          "http_addr": ":8002"
+        },
+        "state": "Follower"
       }
     },
-    "node2": {
-      "bind_addr": ":7001",
-      "state": "Follower",
-      "metadata": {
-        "grpc_addr": ":9001",
-        "http_addr": ":8001"
-      }
-    },
-    "node3": {
-      "bind_addr": ":7002",
-      "state": "Follower",
-      "metadata": {
-        "grpc_addr": ":9002",
-        "http_addr": ":8002"
-      }
-    }
+    "leader": "node1"
   }
 }
 ```
@@ -346,4 +349,51 @@ You can execute the command in docker container as follows:
 
 ```bash
 $ docker exec -it cete-node1 cete node --grpc-addr=:9000
+```
+
+## Securing Cete
+
+Cete supports HTTPS access, ensuring that all communication between clients and a cluster is encrypted.
+
+### Generating a certificate and private key
+
+One way to generate the necessary resources is via [openssl](https://www.openssl.org/). For example:
+
+```bash
+$ openssl req -x509 -nodes -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365
+Generating a 4096 bit RSA private key
+............................++
+........++
+writing new private key to 'key.pem'
+-----
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) []:JP
+State or Province Name (full name) []:Tokyo
+Locality Name (eg, city) []:Minato
+Organization Name (eg, company) []:Cete Project
+Organizational Unit Name (eg, section) []:Operations
+Common Name (eg, fully qualified host name) []:cete.example.org
+Email Address []:admin@example.org
+```
+
+### Secure cluster example
+
+Starting a node with HTTPS enabled, node-to-node encryption, and with the above configuration file. It is assumed the HTTPS X.509 certificate and key are at the paths server.crt and key.pem respectively.
+
+```bash
+$ ./bin/cete start --id=node1 --bind-addr=:7000 --grpc-addr=:9000 --http-addr=:8000 --data-dir=/tmp/cete/node1 --peer-grpc-addr=:9000 --cert-file=./cert.pem --key-file=./key.pem --cert-hostname=cete.example.org
+$ ./bin/cete start --id=node2 --bind-addr=:7001 --grpc-addr=:9001 --http-addr=:8001 --data-dir=/tmp/cete/node2 --peer-grpc-addr=:9000 --cert-file=./cert.pem --key-file=./key.pem --cert-hostname=cete.example.org
+$ ./bin/cete start --id=node3 --bind-addr=:7002 --grpc-addr=:9002 --http-addr=:8002 --data-dir=/tmp/cete/node3 --peer-grpc-addr=:9000 --cert-file=./cert.pem --key-file=./key.pem --cert-hostname=cete.example.org
+```
+
+You can access the cluster by adding a flag, such as the following command:
+
+```bash
+./bin/cete cluster --grpc-addr=:9000 --cert-file=./cert.pem --cert-hostname=cete.example.org | jq .
 ```

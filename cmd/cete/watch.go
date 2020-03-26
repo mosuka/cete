@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,8 +31,10 @@ import (
 
 func execWatch(ctx *cli.Context) error {
 	grpcAddr := ctx.String("grpc-addr")
+	certFile := ctx.String("cert-file")
+	certHostname := ctx.String("cert-hostname")
 
-	c, err := client.NewGRPCClient(grpcAddr)
+	c, err := client.NewGRPCClientWithContextTLS(grpcAddr, context.Background(), certFile, certHostname)
 	if err != nil {
 		return err
 	}

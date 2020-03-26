@@ -26,6 +26,7 @@ import (
 	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -35,13 +36,17 @@ type GRPCServer struct {
 	server   *grpc.Server
 	listener net.Listener
 
+	certFile     string
+	keyFile      string
+	certHostname string
+
 	logger *zap.Logger
 }
 
-func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (*GRPCServer, error) {
+func NewGRPCServer(address string, raftServer *RaftServer, certFile string, keyFile string, certHostname string, logger *zap.Logger) (*GRPCServer, error) {
 	grpcLogger := logger.Named("grpc")
 
-	server := grpc.NewServer(
+	opts := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(math.MaxInt64),
 		grpc.MaxSendMsgSize(math.MaxInt64),
 		grpc.StreamInterceptor(
@@ -65,9 +70,24 @@ func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (
 				Timeout: 5 * time.Second,
 			},
 		),
+	}
+
+	if certFile == "" && keyFile == "" {
+		logger.Info("disabling TLS")
+	} else {
+		logger.Info("enabling TLS")
+		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+		if err != nil {
+			logger.Error("failed to create credentials", zap.Error(err))
+		}
+		opts = append(opts, grpc.Creds(creds))
+	}
+
+	server := grpc.NewServer(
+		opts...,
 	)
 
-	service, err := NewGRPCService(raftServer, logger)
+	service, err := NewGRPCService(raftServer, certFile, certHostname, logger)
 	if err != nil {
 		logger.Error("failed to create key value store service", zap.Error(err))
 		return nil, err
@@ -86,16 +106,21 @@ func NewGRPCServer(address string, raftServer *RaftServer, logger *zap.Logger) (
 	}
 
 	return &GRPCServer{
-		address:  address,
-		service:  service,
-		server:   server,
-		listener: listener,
-		logger:   logger,
+		address:      address,
+		service:      service,
+		server:       server,
+		listener:     listener,
+		certFile:     certFile,
+		keyFile:      keyFile,
+		certHostname: certHostname,
+		logger:       logger,
 	}, nil
 }
 
 func (s *GRPCServer) Start() error {
-	s.service.Start()
+	if err := s.service.Start(); err != nil {
+		s.logger.Error("failed to start service", zap.Error(err))
+	}
 
 	go func() {
 		_ = s.server.Serve(s.listener)

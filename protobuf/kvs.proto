@@ -85,17 +85,17 @@ message Metadata {
 
 message Node {
     string bind_addr = 1;
-//    string grpc_addr = 2;
-//    string http_addr = 3;
-    string state = 2;
-    Metadata metadata = 3;
+    Metadata metadata = 2;
+    string state = 3;
+}
+
+message Cluster {
+    map<string, Node> nodes = 1;
+    string leader = 2;
 }
 
 message JoinRequest {
     string id = 1;
-//    string bind_addr = 2;
-//    string grpc_addr = 3;
-//    string http_addr = 4;
     Node node = 2;
 }
 
@@ -108,7 +108,7 @@ message NodeResponse {
 }
 
 message ClusterResponse {
-    map<string, Node> nodes = 1;
+    Cluster cluster = 1;
 }
 
 message GetRequest {
@@ -127,7 +127,6 @@ message SetRequest {
 message DeleteRequest {
     string key = 1;
 }
-
 
 message SetMetadataRequest {
     string id = 1;
