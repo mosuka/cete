@@ -155,4 +155,4 @@ clean:
 .PHONY: cert
 cert:
 	@echo ">> generating certification"
-	go run $(GOROOT)/src/crypto/tls/generate_cert.go --rsa-bits=2048 --host=localhost
+	openssl req -x509 -nodes -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365

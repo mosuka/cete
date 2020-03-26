@@ -65,9 +65,7 @@ func execStart(ctx *cli.Context) error {
 		return err
 	}
 
-	// TODO: TLS support for gRPC will be done later.
-	//grpcServer, err := server.NewGRPCServer(grpcAddr, raftServer, certFile, keyFile, certHostname, logger)
-	grpcServer, err := server.NewGRPCServer(grpcAddr, raftServer, "", "", "", logger)
+	grpcServer, err := server.NewGRPCServer(grpcAddr, raftServer, certFile, keyFile, certHostname, logger)
 	if err != nil {
 		logger.Error("failed to create gRPC server", zap.String("grpc_addr", grpcAddr), zap.Error(err))
 		return err
@@ -118,9 +116,7 @@ func execStart(ctx *cli.Context) error {
 		joinAddr = peerGrpcAddr
 	}
 
-	// TODO: TLS support for gRPC will be done later.
-	//c, err := client.NewGRPCClientWithContextTLS(joinAddr, context.Background(), certFile, certHostname)
-	c, err := client.NewGRPCClientWithContext(joinAddr, context.Background())
+	c, err := client.NewGRPCClientWithContextTLS(joinAddr, context.Background(), certFile, certHostname)
 	if err != nil {
 		logger.Error("failed to create gRPC client", zap.String("addr", joinAddr), zap.Error(err))
 		return err

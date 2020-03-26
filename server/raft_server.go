@@ -211,11 +211,9 @@ func (s *RaftServer) startWatchCluster(checkInterval time.Duration) {
 		case <-s.raft.LeaderCh():
 			s.logger.Info("became a leader", zap.String("leaderAddr", string(s.raft.Leader())))
 		case event := <-s.fsm.applyCh:
-			s.logger.Info("receive an event", zap.Any("event", event))
 			s.applyCh <- event
-			s.logger.Info("send an event", zap.Any("event", event))
-		case <-ticker.C:
-			s.logger.Debug("tick")
+			//case <-ticker.C:
+			//	s.logger.Debug("tick")
 		}
 	}
 }
