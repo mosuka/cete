@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 - Fix gateway bug #26 @mosuka
+- Support TLS #25 @mosuka
 - Add keepalive options #24 @mosuka
 - Improve cluster watching #22 @mosuka
 - Refactoring #21 @mosuka
