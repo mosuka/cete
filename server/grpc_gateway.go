@@ -16,7 +16,6 @@ package server
 
 import (
 	"context"
-	"google.golang.org/grpc/keepalive"
 	"math"
 	"net"
 	"net/http"
@@ -28,6 +27,8 @@ import (
 	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 )
 
 func responseFilter(ctx context.Context, w http.ResponseWriter, resp proto.Message) error {
@@ -82,17 +83,15 @@ func NewGRPCGateway(grpcGatewayAddr string, grpcAddr string, certFile string, ke
 		runtime.WithForwardResponseOption(responseFilter),
 	)
 
-	// TODO: TLS support for gRPC will be done later.
-	dialOpts = append(dialOpts, grpc.WithInsecure())
-	//if certFile == "" {
-	//	dialOpts = append(dialOpts, grpc.WithInsecure())
-	//} else {
-	//	creds, err := credentials.NewClientTLSFromFile(certFile, certHostname)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
-	//}
+	if certFile == "" {
+		dialOpts = append(dialOpts, grpc.WithInsecure())
+	} else {
+		creds, err := credentials.NewClientTLSFromFile(certFile, certHostname)
+		if err != nil {
+			return nil, err
+		}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
+	}
 
 	err := protobuf.RegisterKVSHandlerFromEndpoint(ctx, mux, grpcAddr, dialOpts)
 	if err != nil {
