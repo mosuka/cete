@@ -1,17 +1,3 @@
-// Copyright (c) 2020 Minoru Osuka
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 		http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package marshaler
 
 import (
@@ -60,13 +46,13 @@ func TestMarshalAny(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 
-	expectedType = "kvs.Node"
+	expectedType = "protobuf.Node"
 	actualType = nodeAny.TypeUrl
 	if expectedType != actualType {
 		t.Errorf("expected content to see %s, saw %s", expectedType, actualType)
 	}
 
-	expectedValue = []byte(`{"bind_addr":":7000","state":"Leader","metadata":{"grpc_addr":":9000","http_addr":":8000",}}`)
+	expectedValue = []byte(`{"bind_addr":":7000","metadata":{"grpc_addr":":9000","http_addr":":8000"},"state":"Leader"}`)
 	actualValue = nodeAny.Value
 	if !bytes.Equal(expectedValue, actualValue) {
 		t.Errorf("expected content to see %v, saw %v", expectedValue, actualValue)
@@ -99,7 +85,7 @@ func TestUnmarshalAny(t *testing.T) {
 	// raft.Node
 	dataAny = &any.Any{
 		TypeUrl: "protobuf.Node",
-		Value:   []byte(`{"bind_addr":":7000","state":"Leader","metadata":{"grpc_addr":":9000","http_addr":":8000",}}`),
+		Value:   []byte(`{"bind_addr":":7000","metadata":{"grpc_addr":":9000","http_addr":":8000"},"state":"Leader"}`),
 	}
 
 	data, err = MarshalAny(dataAny)
@@ -108,7 +94,7 @@ func TestUnmarshalAny(t *testing.T) {
 	}
 	node := data.(*protobuf.Node)
 
-	if node.BindAddr != ":6060" {
+	if node.BindAddr != ":7000" {
 		t.Errorf("expected content to see %v, saw %v", ":6060", node.BindAddr)
 	}
 	if node.Metadata.GrpcAddr != ":9000" {

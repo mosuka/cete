@@ -1,17 +1,3 @@
-# Copyright (c) 2020 Minoru Osuka
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# 		http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 GOOS ?=
 GOARCH ?=
 GO111MODULE ?= on
@@ -27,7 +13,7 @@ PACKAGES = $(shell $(GO) list ./... | grep -v '/vendor/')
 
 PROTOBUFS = $(shell find . -name '*.proto' -print0 | xargs -0 -n1 dirname | sort | uniq | grep -v /vendor/)
 
-TARGET_PACKAGES = $(shell find . -name 'main.go' -print0 | xargs -0 -n1 dirname | sort | uniq | grep -v /vendor/)
+TARGET_PACKAGES = $(shell find $(CURDIR) -name 'main.go' -print0 | xargs -0 -n1 dirname | sort | uniq | grep -v /vendor/)
 
 GRPC_GATEWAY_PATH = $(shell $(GO) list -m -f "{{.Dir}}" github.com/grpc-ecosystem/grpc-gateway)
 
@@ -55,13 +41,13 @@ GO := GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) CGO_CFLAGS=$(CGO_
 .PHONY: protoc
 protoc:
 	@echo ">> generating proto3 code"
-	@for proto_dir in $(PROTOBUFS); do echo $$proto_dir; protoc --proto_path=. --proto_path=$$proto_dir --proto_path=${GRPC_GATEWAY_PATH} --proto_path=${GRPC_GATEWAY_PATH}/third_party/googleapis --go_out=plugins=grpc:$(GOPATH)/src $$proto_dir/*.proto || exit 1; done
-	@for proto_dir in $(PROTOBUFS); do echo $$proto_dir; protoc --proto_path=. --proto_path=$$proto_dir --proto_path=${GRPC_GATEWAY_PATH} --proto_path=${GRPC_GATEWAY_PATH}/third_party/googleapis --grpc-gateway_out=logtostderr=true,allow_delete_body=true:$(GOPATH)/src $$proto_dir/*.proto || exit 1; done
+	for proto_dir in $(PROTOBUFS); do echo $$proto_dir; protoc --proto_path=. --proto_path=$$proto_dir --proto_path=${GRPC_GATEWAY_PATH} --proto_path=${GRPC_GATEWAY_PATH}/third_party/googleapis --go_out=plugins=grpc:$(GOPATH)/src $$proto_dir/*.proto || exit 1; done
+	for proto_dir in $(PROTOBUFS); do echo $$proto_dir; protoc --proto_path=. --proto_path=$$proto_dir --proto_path=${GRPC_GATEWAY_PATH} --proto_path=${GRPC_GATEWAY_PATH}/third_party/googleapis --grpc-gateway_out=logtostderr=true,allow_delete_body=true:$(GOPATH)/src $$proto_dir/*.proto || exit 1; done
 
 .PHONY: format
 format:
 	@echo ">> formatting code"
-	@$(GO) fmt $(PACKAGES)
+	$(GO) fmt $(PACKAGES)
 
 .PHONY: test
 test:
@@ -72,13 +58,20 @@ test:
 	@echo "   CGO_CFLAGS  = $(CGO_CFLAGS)"
 	@echo "   CGO_LDFLAGS = $(CGO_LDFLAGS)"
 	@echo "   BUILD_TAGS  = $(BUILD_TAGS)"
-	@$(GO) test -v -tags="$(BUILD_TAGS)" $(PACKAGES)
+	$(GO) test -v -tags="$(BUILD_TAGS)" $(PACKAGES)
 
 .PHONY: coverage
 coverage:
 	@echo ">> checking coverage of all packages"
-	$(GO) test -coverprofile=./cover.out -tags="$(BUILD_TAGS)" $(PACKAGES)
-	$(GO) tool cover -html=cover.out -o cover.html
+	(GO) test -coverprofile=./cover.out -tags="$(BUILD_TAGS)" $(PACKAGES)
+	(GO) tool cover -html=cover.out -o cover.html
+
+.PHONY: clean
+clean:
+	@echo ">> cleaning binaries"
+	rm -rf ./bin
+	rm -rf ./data
+	rm -rf ./dist
 
 .PHONY: build
 build:
@@ -90,7 +83,7 @@ build:
 	@echo "   CGO_LDFLAGS = $(CGO_LDFLAGS)"
 	@echo "   BUILD_TAGS  = $(BUILD_TAGS)"
 	@echo "   VERSION     = $(VERSION)"
-	@for target_pkg in $(TARGET_PACKAGES); do echo $$target_pkg; $(GO) build -tags="$(BUILD_TAGS)" $(LDFLAGS) -o ./bin/`basename $$target_pkg`$(BIN_EXT) $$target_pkg || exit 1; done
+	for target_pkg in $(TARGET_PACKAGES); do echo $$target_pkg; $(GO) build -tags="$(BUILD_TAGS)" $(LDFLAGS) -o ./bin/`basename $$target_pkg`$(BIN_EXT) $$target_pkg || exit 1; done
 
 .PHONY: install
 install:
@@ -102,7 +95,7 @@ install:
 	@echo "   CGO_LDFLAGS = $(CGO_LDFLAGS)"
 	@echo "   BUILD_TAGS  = $(BUILD_TAGS)"
 	@echo "   VERSION     = $(VERSION)"
-	@for target_pkg in $(TARGET_PACKAGES); do echo $$target_pkg; $(GO) install -tags="$(BUILD_TAGS)" $(LDFLAGS) $$target_pkg || exit 1; done
+	for target_pkg in $(TARGET_PACKAGES); do echo $$target_pkg; $(GO) install -tags="$(BUILD_TAGS)" $(LDFLAGS) $$target_pkg || exit 1; done
 
 .PHONY: dist
 dist:
@@ -115,11 +108,11 @@ dist:
 	@echo "   BUILD_TAGS  = $(BUILD_TAGS)"
 	@echo "   VERSION     = $(VERSION)"
 	mkdir -p ./dist/$(GOOS)-$(GOARCH)/bin
-	@for target_pkg in $(TARGET_PACKAGES); do echo $$target_pkg; $(GO) build -tags="$(BUILD_TAGS)" $(LDFLAGS) -o ./dist/$(GOOS)-$(GOARCH)/bin/`basename $$target_pkg`$(BIN_EXT) $$target_pkg || exit 1; done
+	for target_pkg in $(TARGET_PACKAGES); do echo $$target_pkg; $(GO) build -tags="$(BUILD_TAGS)" $(LDFLAGS) -o ./dist/$(GOOS)-$(GOARCH)/bin/`basename $$target_pkg`$(BIN_EXT) $$target_pkg || exit 1; done
 	(cd ./dist/$(GOOS)-$(GOARCH); tar zcfv ../cete-${VERSION}.$(GOOS)-$(GOARCH).tar.gz .)
 
-.PHONY: git-tag
-git-tag:
+.PHONY: tag
+tag:
 	@echo ">> tagging github"
 	@echo "   VERSION = $(VERSION)"
 ifeq ($(VERSION),$(filter $(VERSION),latest master ""))
@@ -129,30 +122,27 @@ else
 	git push origin $(VERSION)
 endif
 
-.PHONY: docker-build
-docker-build:
+.PHONY: build-docker
+build-docker:
 	@echo ">> building docker container image"
 	@echo "   DOCKER_REPOSITORY = $(DOCKER_REPOSITORY)"
 	@echo "   VERSION           = $(VERSION)"
 	docker build -t $(DOCKER_REPOSITORY)/cete:latest --build-arg VERSION=$(VERSION) .
 	docker tag $(DOCKER_REPOSITORY)/cete:latest $(DOCKER_REPOSITORY)/cete:$(VERSION)
 
-.PHONY: docker-push
-docker-push:
+.PHONY: push-docker
+push-docker:
 	@echo ">> pushing docker container image"
 	@echo "   DOCKER_REPOSITORY = $(DOCKER_REPOSITORY)"
 	@echo "   VERSION           = $(VERSION)"
 	docker push $(DOCKER_REPOSITORY)/cete:latest
 	docker push $(DOCKER_REPOSITORY)/cete:$(VERSION)
 
-.PHONY: clean
-clean:
-	@echo ">> cleaning binaries"
-	rm -rf ./bin
-	rm -rf ./data
-	rm -rf ./dist
+.PHONY: clean-docker
+clean-docker:
+	docker rmi -f $(shell docker images --filter "dangling=true" -q --no-trunc)
 
 .PHONY: cert
 cert:
 	@echo ">> generating certification"
-	openssl req -x509 -nodes -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'
+	openssl req -x509 -nodes -newkey rsa:4096 -keyout ./etc/cete-key.pem -out ./etc/cete-cert.pem -days 365 -subj '/CN=localhost'
