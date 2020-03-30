@@ -67,6 +67,27 @@ $ make GOOS=linux dist
 $ make GOOS=darwin dist
 ```
 
+## Configure Cete
+
+| CLI Flag | Environment variable | Configuration File | Description |
+| --- | --- | --- | --- |
+| --config-file | - | - | config file. if omitted, cete.yaml in /etc and home directory will be searched |
+| --id | CETE_ID | id | node ID |
+| --raft-address | CETE_RAFT_ADDRESS | raft_address | Raft server listen address |
+| --grpc-address | CETE_GRPC_ADDRESS | grpc_address | gRPC server listen address |
+| --http-address | CETE_HTTP_ADDRESS | http_address | HTTP server listen address |
+| --data-directory | CETE_DATA_DIRECTORY | data_directory | data directory which store the key-value store data and Raft logs |
+| --peer-grpc-address | CETE_PEER_GRPC_ADDRESS | peer_grpc_address | listen address of the existing gRPC server in the joining cluster |
+| --certificate-file | CETE_CERTIFICATE_FILE | certificate_file | path to the client server TLS certificate file |
+| --key-file | CETE_KEY_FILE | key_file | path to the client server TLS key file |
+| --common-name | CETE_COMMON_NAME | common_name | certificate common name |
+| --log-level | CETE_LOG_LEVEL | log_level | log level |
+| --log-file | CETE_LOG_FILE | log_file | log file |
+| --log-max-size | CETE_LOG_MAX_SIZE | log_max_size | max size of a log file in megabytes |
+| --log-max-backups | CETE_LOG_MAX_BACKUPS | log_max_backups | max backup count of log files |
+| --log-max-age | CETE_LOG_MAX_AGE | log_max_age | max age of a log file in days |
+| --log-compress | CETE_LOG_COMPRESS | log_compress | compress a log file |
+
 
 ## Starting Cete node
 
@@ -103,7 +124,7 @@ The result of the above command is:
 }
 ```
 
-### Putting a key-value
+## Putting a key-value
 
 To put a key-value, execute the following command:
 
@@ -118,7 +139,7 @@ $ curl -X PUT 'http://127.0.0.1:8000/v1/data/1' --data-binary value1
 $ curl -X PUT 'http://127.0.0.1:8000/v1/data/2' -H "Content-Type: image/jpeg" --data-binary @/path/to/photo.jpg
 ```
 
-### Getting a key-value
+## Getting a key-value
 
 To get a key-value, execute the following command:
 
@@ -138,7 +159,7 @@ You can see the result. The result of the above command is:
 value1
 ```
 
-### Deleting a value by key via CLI
+## Deleting a key-value
 
 Deleting a value by key, execute the following command:
 
