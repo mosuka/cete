@@ -63,8 +63,8 @@ test:
 .PHONY: coverage
 coverage:
 	@echo ">> checking coverage of all packages"
-	(GO) test -coverprofile=./cover.out -tags="$(BUILD_TAGS)" $(PACKAGES)
-	(GO) tool cover -html=cover.out -o cover.html
+	$(GO) test -coverprofile=./cover.out -tags="$(BUILD_TAGS)" $(PACKAGES)
+	$(GO) tool cover -html=cover.out -o cover.html
 
 .PHONY: clean
 clean:
