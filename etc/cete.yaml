@@ -1,0 +1,15 @@
+id: "node1"
+raft_address: ":7000"
+grpc_address: ":9000"
+http_address: ":8000"
+data_directory: "/tmp/cete/node1/data"
+peer_grpc_address: ""
+#certificate_file: "./etc/cete-cert.pem"
+#key_file: "./etc/cete-key.pem"
+#common_name: "localhost"
+log_level: "INFO"
+#log_file: "/tmp/cete/node1/cete.log"
+#log_max_size: 500
+#log_max_backups: 3
+#log_max_age: 30
+#log_compress: false

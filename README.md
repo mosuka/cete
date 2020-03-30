@@ -1,22 +1,3 @@
-<!--
- Copyright (c) 2020 Minoru Osuka
-
- Licensed to the Apache Software Foundation (ASF) under one or more
- contributor license agreements.  See the NOTICE file distributed with
- this work for additional information regarding copyright ownership.
- The ASF licenses this file to You under the Apache License, Version 2.0
- (the "License"); you may not use this file except in compliance with
- the License.  You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
--->
-
 # Cete
 
 Cete is a distributed key value store server written in [Go](https://golang.org) built on top of [BadgerDB](https://blog.dgraph.io/post/badger/).  
@@ -86,6 +67,27 @@ $ make GOOS=linux dist
 $ make GOOS=darwin dist
 ```
 
+## Configure Cete
+
+| CLI Flag | Environment variable | Configuration File | Description |
+| --- | --- | --- | --- |
+| --config-file | - | - | config file. if omitted, cete.yaml in /etc and home directory will be searched |
+| --id | CETE_ID | id | node ID |
+| --raft-address | CETE_RAFT_ADDRESS | raft_address | Raft server listen address |
+| --grpc-address | CETE_GRPC_ADDRESS | grpc_address | gRPC server listen address |
+| --http-address | CETE_HTTP_ADDRESS | http_address | HTTP server listen address |
+| --data-directory | CETE_DATA_DIRECTORY | data_directory | data directory which store the key-value store data and Raft logs |
+| --peer-grpc-address | CETE_PEER_GRPC_ADDRESS | peer_grpc_address | listen address of the existing gRPC server in the joining cluster |
+| --certificate-file | CETE_CERTIFICATE_FILE | certificate_file | path to the client server TLS certificate file |
+| --key-file | CETE_KEY_FILE | key_file | path to the client server TLS key file |
+| --common-name | CETE_COMMON_NAME | common_name | certificate common name |
+| --log-level | CETE_LOG_LEVEL | log_level | log level |
+| --log-file | CETE_LOG_FILE | log_file | log file |
+| --log-max-size | CETE_LOG_MAX_SIZE | log_max_size | max size of a log file in megabytes |
+| --log-max-backups | CETE_LOG_MAX_BACKUPS | log_max_backups | max backup count of log files |
+| --log-max-age | CETE_LOG_MAX_AGE | log_max_age | max age of a log file in days |
+| --log-compress | CETE_LOG_COMPRESS | log_compress | compress a log file |
+
 
 ## Starting Cete node
 
@@ -122,7 +124,7 @@ The result of the above command is:
 }
 ```
 
-### Putting a key-value
+## Putting a key-value
 
 To put a key-value, execute the following command:
 
@@ -137,7 +139,7 @@ $ curl -X PUT 'http://127.0.0.1:8000/v1/data/1' --data-binary value1
 $ curl -X PUT 'http://127.0.0.1:8000/v1/data/2' -H "Content-Type: image/jpeg" --data-binary @/path/to/photo.jpg
 ```
 
-### Getting a key-value
+## Getting a key-value
 
 To get a key-value, execute the following command:
 
@@ -157,7 +159,7 @@ You can see the result. The result of the above command is:
 value1
 ```
 
-### Deleting a value by key via CLI
+## Deleting a key-value
 
 Deleting a value by key, execute the following command:
 
@@ -360,7 +362,7 @@ Cete supports HTTPS access, ensuring that all communication between clients and 
 One way to generate the necessary resources is via [openssl](https://www.openssl.org/). For example:
 
 ```bash
-$ openssl req -x509 -nodes -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -subj '/CN=localhost'
+$ openssl req -x509 -nodes -newkey rsa:4096 -keyout ./etc/cete-key.pem -out ./etc/cete-cert.pem -days 365 -subj '/CN=localhost'
 Generating a 4096 bit RSA private key
 ............................++
 ........++
@@ -372,9 +374,9 @@ writing new private key to 'key.pem'
 Starting a node with HTTPS enabled, node-to-node encryption, and with the above configuration file. It is assumed the HTTPS X.509 certificate and key are at the paths server.crt and key.pem respectively.
 
 ```bash
-$ ./bin/cete start --id=node1 --bind-addr=:7000 --grpc-addr=:9000 --http-addr=:8000 --data-dir=/tmp/cete/node1 --peer-grpc-addr=:9000 --cert-file=./cert.pem --key-file=./key.pem --cert-hostname=localhost
-$ ./bin/cete start --id=node2 --bind-addr=:7001 --grpc-addr=:9001 --http-addr=:8001 --data-dir=/tmp/cete/node2 --peer-grpc-addr=:9000 --cert-file=./cert.pem --key-file=./key.pem --cert-hostname=localhost
-$ ./bin/cete start --id=node3 --bind-addr=:7002 --grpc-addr=:9002 --http-addr=:8002 --data-dir=/tmp/cete/node3 --peer-grpc-addr=:9000 --cert-file=./cert.pem --key-file=./key.pem --cert-hostname=localhost
+$ ./bin/cete start --id=node1 --bind-addr=:7000 --grpc-addr=:9000 --http-addr=:8000 --data-dir=/tmp/cete/node1 --peer-grpc-addr=:9000 --cert-file=./etc/cert.pem --key-file=./etc/key.pem --cert-hostname=localhost
+$ ./bin/cete start --id=node2 --bind-addr=:7001 --grpc-addr=:9001 --http-addr=:8001 --data-dir=/tmp/cete/node2 --peer-grpc-addr=:9000 --cert-file=./etc/cert.pem --key-file=./etc/key.pem --cert-hostname=localhost
+$ ./bin/cete start --id=node3 --bind-addr=:7002 --grpc-addr=:9002 --http-addr=:8002 --data-dir=/tmp/cete/node3 --peer-grpc-addr=:9000 --cert-file=./etc/cert.pem --key-file=./etc/key.pem --cert-hostname=localhost
 ```
 
 You can access the cluster by adding a flag, such as the following command:
