@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"github.com/mosuka/cete/metric"
 	"io/ioutil"
 	"net"
 	"os"
@@ -17,6 +16,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/mosuka/cete/errors"
 	"github.com/mosuka/cete/marshaler"
+	"github.com/mosuka/cete/metric"
 	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 )

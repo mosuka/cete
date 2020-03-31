@@ -1,17 +1,3 @@
-// Copyright (c) 2020 Minoru Osuka
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 		http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package marshaler
 
 import (
@@ -24,16 +10,25 @@ import (
 )
 
 func init() {
-	registry.RegisterType("protobuf.JoinRequest", reflect.TypeOf(protobuf.JoinRequest{}))
-	registry.RegisterType("protobuf.LeaveRequest", reflect.TypeOf(protobuf.LeaveRequest{}))
-	registry.RegisterType("protobuf.GetRequest", reflect.TypeOf(protobuf.GetRequest{}))
-	registry.RegisterType("protobuf.SetRequest", reflect.TypeOf(protobuf.SetRequest{}))
-	registry.RegisterType("protobuf.DeleteRequest", reflect.TypeOf(protobuf.DeleteRequest{}))
-	registry.RegisterType("protobuf.KeyValuePair", reflect.TypeOf(protobuf.KeyValuePair{}))
-	registry.RegisterType("protobuf.SetMetadataRequest", reflect.TypeOf(protobuf.SetMetadataRequest{}))
-	registry.RegisterType("protobuf.DeleteMetadataRequest", reflect.TypeOf(protobuf.DeleteMetadataRequest{}))
+	registry.RegisterType("protobuf.LivenessCheckResponse", reflect.TypeOf(protobuf.LivenessCheckResponse{}))
+	registry.RegisterType("protobuf.ReadinessCheckResponse", reflect.TypeOf(protobuf.ReadinessCheckResponse{}))
 	registry.RegisterType("protobuf.Metadata", reflect.TypeOf(protobuf.Metadata{}))
 	registry.RegisterType("protobuf.Node", reflect.TypeOf(protobuf.Node{}))
+	registry.RegisterType("protobuf.Cluster", reflect.TypeOf(protobuf.Cluster{}))
+	registry.RegisterType("protobuf.JoinRequest", reflect.TypeOf(protobuf.JoinRequest{}))
+	registry.RegisterType("protobuf.LeaveRequest", reflect.TypeOf(protobuf.LeaveRequest{}))
+	registry.RegisterType("protobuf.NodeResponse", reflect.TypeOf(protobuf.NodeResponse{}))
+	registry.RegisterType("protobuf.ClusterResponse", reflect.TypeOf(protobuf.ClusterResponse{}))
+	registry.RegisterType("protobuf.GetRequest", reflect.TypeOf(protobuf.GetRequest{}))
+	registry.RegisterType("protobuf.GetResponse", reflect.TypeOf(protobuf.GetResponse{}))
+	registry.RegisterType("protobuf.SetRequest", reflect.TypeOf(protobuf.SetRequest{}))
+	registry.RegisterType("protobuf.DeleteRequest", reflect.TypeOf(protobuf.DeleteRequest{}))
+	registry.RegisterType("protobuf.SetMetadataRequest", reflect.TypeOf(protobuf.SetMetadataRequest{}))
+	registry.RegisterType("protobuf.DeleteMetadataRequest", reflect.TypeOf(protobuf.DeleteMetadataRequest{}))
+	registry.RegisterType("protobuf.Event", reflect.TypeOf(protobuf.Event{}))
+	registry.RegisterType("protobuf.WatchResponse", reflect.TypeOf(protobuf.WatchResponse{}))
+	registry.RegisterType("protobuf.MetricsResponse", reflect.TypeOf(protobuf.MetricsResponse{}))
+	registry.RegisterType("protobuf.KeyValuePair", reflect.TypeOf(protobuf.KeyValuePair{}))
 	registry.RegisterType("map[string]interface {}", reflect.TypeOf((map[string]interface{})(nil)))
 }
 

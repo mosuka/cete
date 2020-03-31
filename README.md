@@ -124,6 +124,32 @@ The result of the above command is:
 }
 ```
 
+## Health check
+
+You can check the health status of the node.
+
+```bash
+$ ./bin/cete healthcheck | jq .
+```
+
+Also provides the following REST APIs
+
+### Liveness prove
+
+This endpoint always returns 200 and should be used to check Cete health.
+
+```bash
+$ curl -X GET http://localhost:8000/v1/liveness_check | jq .
+```
+
+### Readiness probe
+
+This endpoint returns 200 when Cete is ready to serve traffic (i.e. respond to queries).
+
+```bash
+$ curl -X GET http://localhost:8000/v1/readiness_check | jq .
+```
+
 ## Putting a key-value
 
 To put a key-value, execute the following command:
