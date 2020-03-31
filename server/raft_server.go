@@ -22,11 +22,11 @@ import (
 )
 
 type RaftServer struct {
-	nodeId    string
-	bindAddr  string
-	dataDir   string
-	bootstrap bool
-	logger    *zap.Logger
+	id            string
+	raftAddress   string
+	dataDirectory string
+	bootstrap     bool
+	logger        *zap.Logger
 
 	fsm *RaftFSM
 
@@ -39,8 +39,8 @@ type RaftServer struct {
 	applyCh chan *protobuf.Event
 }
 
-func NewRaftServer(nodeId string, bindAddr string, dataDir string, bootstrap bool, logger *zap.Logger) (*RaftServer, error) {
-	fsmPath := filepath.Join(dataDir, "kvs")
+func NewRaftServer(id string, raftAddress string, dataDirectory string, bootstrap bool, logger *zap.Logger) (*RaftServer, error) {
+	fsmPath := filepath.Join(dataDirectory, "kvs")
 	fsm, err := NewRaftFSM(fsmPath, logger)
 	if err != nil {
 		logger.Error("failed to create FSM", zap.String("path", fsmPath), zap.Error(err))
@@ -48,12 +48,12 @@ func NewRaftServer(nodeId string, bindAddr string, dataDir string, bootstrap boo
 	}
 
 	return &RaftServer{
-		nodeId:    nodeId,
-		bindAddr:  bindAddr,
-		dataDir:   dataDir,
-		bootstrap: bootstrap,
-		fsm:       fsm,
-		logger:    logger,
+		id:            id,
+		raftAddress:   raftAddress,
+		dataDirectory: dataDirectory,
+		bootstrap:     bootstrap,
+		fsm:           fsm,
+		logger:        logger,
 
 		watchClusterStopCh: make(chan struct{}),
 		watchClusterDoneCh: make(chan struct{}),
@@ -64,30 +64,30 @@ func NewRaftServer(nodeId string, bindAddr string, dataDir string, bootstrap boo
 
 func (s *RaftServer) Start() error {
 	config := raft.DefaultConfig()
-	config.LocalID = raft.ServerID(s.nodeId)
+	config.LocalID = raft.ServerID(s.id)
 	config.SnapshotThreshold = 1024
 	config.LogOutput = ioutil.Discard
 
-	addr, err := net.ResolveTCPAddr("tcp", s.bindAddr)
+	addr, err := net.ResolveTCPAddr("tcp", s.raftAddress)
 	if err != nil {
-		s.logger.Error("failed to resolve TCP address", zap.String("tcp", s.bindAddr), zap.Error(err))
+		s.logger.Error("failed to resolve TCP address", zap.String("raft_address", s.raftAddress), zap.Error(err))
 		return err
 	}
 
-	s.transport, err = raft.NewTCPTransport(s.bindAddr, addr, 3, 10*time.Second, ioutil.Discard)
+	s.transport, err = raft.NewTCPTransport(s.raftAddress, addr, 3, 10*time.Second, ioutil.Discard)
 	if err != nil {
-		s.logger.Error("failed to create TCP transport", zap.String("tcp", s.bindAddr), zap.Error(err))
+		s.logger.Error("failed to create TCP transport", zap.String("raft_address", s.raftAddress), zap.Error(err))
 		return err
 	}
 
 	// create snapshot store
-	snapshotStore, err := raft.NewFileSnapshotStore(s.dataDir, 2, ioutil.Discard)
+	snapshotStore, err := raft.NewFileSnapshotStore(s.dataDirectory, 2, ioutil.Discard)
 	if err != nil {
-		s.logger.Error("failed to create file snapshot store", zap.String("path", s.dataDir), zap.Error(err))
+		s.logger.Error("failed to create file snapshot store", zap.String("path", s.dataDirectory), zap.Error(err))
 		return err
 	}
 
-	logStorePath := filepath.Join(s.dataDir, "raft", "log")
+	logStorePath := filepath.Join(s.dataDirectory, "raft", "log")
 	err = os.MkdirAll(logStorePath, 0755)
 	if err != nil {
 		s.logger.Fatal(err.Error())
@@ -107,7 +107,7 @@ func (s *RaftServer) Start() error {
 		return err
 	}
 
-	stableStorePath := filepath.Join(s.dataDir, "raft", "stable")
+	stableStorePath := filepath.Join(s.dataDirectory, "raft", "stable")
 	err = os.MkdirAll(stableStorePath, 0755)
 	if err != nil {
 		s.logger.Fatal(err.Error())
@@ -150,7 +150,7 @@ func (s *RaftServer) Start() error {
 		s.startWatchCluster(500 * time.Millisecond)
 	}()
 
-	s.logger.Info("Raft server started", zap.String("addr", s.bindAddr))
+	s.logger.Info("Raft server started", zap.String("raft_address", s.raftAddress))
 	return nil
 }
 
@@ -168,7 +168,7 @@ func (s *RaftServer) Stop() error {
 	if future := s.raft.Shutdown(); future.Error() != nil {
 		s.logger.Info("failed to shutdown Raft", zap.Error(future.Error()))
 	}
-	s.logger.Info("Raft has shutdown", zap.String("addr", s.bindAddr))
+	s.logger.Info("Raft has shutdown", zap.String("raft_address", s.raftAddress))
 
 	return nil
 }
@@ -206,79 +206,79 @@ func (s *RaftServer) startWatchCluster(checkInterval time.Duration) {
 
 			switch raftStats["state"] {
 			case "Follower":
-				metric.RaftStateMetric.WithLabelValues(s.nodeId).Set(float64(raft.Follower))
+				metric.RaftStateMetric.WithLabelValues(s.id).Set(float64(raft.Follower))
 			case "Candidate":
-				metric.RaftStateMetric.WithLabelValues(s.nodeId).Set(float64(raft.Candidate))
+				metric.RaftStateMetric.WithLabelValues(s.id).Set(float64(raft.Candidate))
 			case "Leader":
-				metric.RaftStateMetric.WithLabelValues(s.nodeId).Set(float64(raft.Leader))
+				metric.RaftStateMetric.WithLabelValues(s.id).Set(float64(raft.Leader))
 			case "Shutdown":
-				metric.RaftStateMetric.WithLabelValues(s.nodeId).Set(float64(raft.Shutdown))
+				metric.RaftStateMetric.WithLabelValues(s.id).Set(float64(raft.Shutdown))
 			}
 
 			if term, err := strconv.ParseFloat(raftStats["term"], 64); err == nil {
-				metric.RaftTermMetric.WithLabelValues(s.nodeId).Set(term)
+				metric.RaftTermMetric.WithLabelValues(s.id).Set(term)
 			}
 
 			if lastLogIndex, err := strconv.ParseFloat(raftStats["last_log_index"], 64); err == nil {
-				metric.RaftLastLogIndexMetric.WithLabelValues(s.nodeId).Set(lastLogIndex)
+				metric.RaftLastLogIndexMetric.WithLabelValues(s.id).Set(lastLogIndex)
 			}
 
 			if lastLogTerm, err := strconv.ParseFloat(raftStats["last_log_term"], 64); err == nil {
-				metric.RaftLastLogTermMetric.WithLabelValues(s.nodeId).Set(lastLogTerm)
+				metric.RaftLastLogTermMetric.WithLabelValues(s.id).Set(lastLogTerm)
 			}
 
 			if commitIndex, err := strconv.ParseFloat(raftStats["commit_index"], 64); err == nil {
-				metric.RaftCommitIndexMetric.WithLabelValues(s.nodeId).Set(commitIndex)
+				metric.RaftCommitIndexMetric.WithLabelValues(s.id).Set(commitIndex)
 			}
 
 			if appliedIndex, err := strconv.ParseFloat(raftStats["applied_index"], 64); err == nil {
-				metric.RaftAppliedIndexMetric.WithLabelValues(s.nodeId).Set(appliedIndex)
+				metric.RaftAppliedIndexMetric.WithLabelValues(s.id).Set(appliedIndex)
 			}
 
 			if fsmPending, err := strconv.ParseFloat(raftStats["fsm_pending"], 64); err == nil {
-				metric.RaftFsmPendingMetric.WithLabelValues(s.nodeId).Set(fsmPending)
+				metric.RaftFsmPendingMetric.WithLabelValues(s.id).Set(fsmPending)
 			}
 
 			if lastSnapshotIndex, err := strconv.ParseFloat(raftStats["last_snapshot_index"], 64); err == nil {
-				metric.RaftLastSnapshotIndexMetric.WithLabelValues(s.nodeId).Set(lastSnapshotIndex)
+				metric.RaftLastSnapshotIndexMetric.WithLabelValues(s.id).Set(lastSnapshotIndex)
 			}
 
 			if lastSnapshotTerm, err := strconv.ParseFloat(raftStats["last_snapshot_term"], 64); err == nil {
-				metric.RaftLastSnapshotTermMetric.WithLabelValues(s.nodeId).Set(lastSnapshotTerm)
+				metric.RaftLastSnapshotTermMetric.WithLabelValues(s.id).Set(lastSnapshotTerm)
 			}
 
 			if latestConfigurationIndex, err := strconv.ParseFloat(raftStats["latest_configuration_index"], 64); err == nil {
-				metric.RaftLatestConfigurationIndexMetric.WithLabelValues(s.nodeId).Set(latestConfigurationIndex)
+				metric.RaftLatestConfigurationIndexMetric.WithLabelValues(s.id).Set(latestConfigurationIndex)
 			}
 
 			if numPeers, err := strconv.ParseFloat(raftStats["num_peers"], 64); err == nil {
-				metric.RaftNumPeersMetric.WithLabelValues(s.nodeId).Set(numPeers)
+				metric.RaftNumPeersMetric.WithLabelValues(s.id).Set(numPeers)
 			}
 
 			if lastContact, err := strconv.ParseFloat(raftStats["last_contact"], 64); err == nil {
-				metric.RaftLastContactMetric.WithLabelValues(s.nodeId).Set(lastContact)
+				metric.RaftLastContactMetric.WithLabelValues(s.id).Set(lastContact)
 			}
 
 			if nodes, err := s.Nodes(); err == nil {
-				metric.RaftNumNodesMetric.WithLabelValues(s.nodeId).Set(float64(len(nodes)))
+				metric.RaftNumNodesMetric.WithLabelValues(s.id).Set(float64(len(nodes)))
 			}
 
 			kvsStats := s.fsm.Stats()
 
 			if numReads, err := strconv.ParseFloat(kvsStats["num_reads"], 64); err == nil {
-				metric.KvsNumReadsMetric.WithLabelValues(s.nodeId).Set(numReads)
+				metric.KvsNumReadsMetric.WithLabelValues(s.id).Set(numReads)
 			}
 
 			if numWrites, err := strconv.ParseFloat(kvsStats["num_writes"], 64); err == nil {
-				metric.KvsNumWritesMetric.WithLabelValues(s.nodeId).Set(numWrites)
+				metric.KvsNumWritesMetric.WithLabelValues(s.id).Set(numWrites)
 			}
 
 			if numBytesRead, err := strconv.ParseFloat(kvsStats["num_bytes_read"], 64); err == nil {
-				metric.KvsNumBytesReadMetric.WithLabelValues(s.nodeId).Set(numBytesRead)
+				metric.KvsNumBytesReadMetric.WithLabelValues(s.id).Set(numBytesRead)
 			}
 
 			if numBytesWritten, err := strconv.ParseFloat(kvsStats["num_bytes_written"], 64); err == nil {
-				metric.KvsNumBytesWrittenMetric.WithLabelValues(s.nodeId).Set(numBytesWritten)
+				metric.KvsNumBytesWrittenMetric.WithLabelValues(s.id).Set(numBytesWritten)
 			}
 
 			var numLsmGets map[string]interface{}
@@ -296,39 +296,39 @@ func (s *RaftServer) startWatchCluster(checkInterval time.Duration) {
 			}
 
 			if numGets, err := strconv.ParseFloat(kvsStats["num_gets"], 64); err == nil {
-				metric.KvsNumGetsMetric.WithLabelValues(s.nodeId).Set(numGets)
+				metric.KvsNumGetsMetric.WithLabelValues(s.id).Set(numGets)
 			}
 
 			if numPuts, err := strconv.ParseFloat(kvsStats["num_puts"], 64); err == nil {
-				metric.KvsNumPutsMetric.WithLabelValues(s.nodeId).Set(numPuts)
+				metric.KvsNumPutsMetric.WithLabelValues(s.id).Set(numPuts)
 			}
 
 			if numBlockedPuts, err := strconv.ParseFloat(kvsStats["num_blocked_puts"], 64); err == nil {
-				metric.KvsNumBlockedPutsMetric.WithLabelValues(s.nodeId).Set(numBlockedPuts)
+				metric.KvsNumBlockedPutsMetric.WithLabelValues(s.id).Set(numBlockedPuts)
 			}
 
 			if numMemtablesGets, err := strconv.ParseFloat(kvsStats["num_memtables_gets"], 64); err == nil {
-				metric.KvsNumMemtablesGetsMetric.WithLabelValues(s.nodeId).Set(numMemtablesGets)
+				metric.KvsNumMemtablesGetsMetric.WithLabelValues(s.id).Set(numMemtablesGets)
 			}
 
 			var lsmSize map[string]interface{}
 			if err := json.Unmarshal([]byte(kvsStats["lsm_size"]), &lsmSize); err == nil {
 				for key, value := range lsmSize {
-					metric.KvsLSMSizeMetric.WithLabelValues(s.nodeId, key).Set(value.(float64))
+					metric.KvsLSMSizeMetric.WithLabelValues(s.id, key).Set(value.(float64))
 				}
 			}
 
 			var vlogSize map[string]interface{}
 			if err := json.Unmarshal([]byte(kvsStats["vlog_size"]), &vlogSize); err == nil {
 				for key, value := range vlogSize {
-					metric.KvsVlogSizeMetric.WithLabelValues(s.nodeId, key).Set(value.(float64))
+					metric.KvsVlogSizeMetric.WithLabelValues(s.id, key).Set(value.(float64))
 				}
 			}
 
 			var pendingWrites map[string]interface{}
 			if err := json.Unmarshal([]byte(kvsStats["pending_writes"]), &pendingWrites); err == nil {
 				for key, value := range pendingWrites {
-					metric.KvsPendingWritesMetric.WithLabelValues(s.nodeId, key).Set(value.(float64))
+					metric.KvsPendingWritesMetric.WithLabelValues(s.id, key).Set(value.(float64))
 				}
 			}
 		}
@@ -357,7 +357,7 @@ func (s *RaftServer) LeaderAddress(timeout time.Duration) (raft.ServerAddress, e
 		case <-ticker.C:
 			leaderAddr := s.raft.Leader()
 			if leaderAddr != "" {
-				s.logger.Info("detected a leader address", zap.String("addr", string(leaderAddr)))
+				s.logger.Debug("detected a leader address", zap.String("raft_address", string(leaderAddr)))
 				return leaderAddr, nil
 			}
 		case <-timer.C:
@@ -472,13 +472,13 @@ func (s *RaftServer) Join(id string, node *protobuf.Node) error {
 	}
 
 	if nodeExists {
-		s.logger.Debug("node already exists", zap.String("id", id), zap.String("bind_addr", node.BindAddr))
+		s.logger.Debug("node already exists", zap.String("id", id), zap.String("raft_address", node.RaftAddress))
 	} else {
-		if future := s.raft.AddVoter(raft.ServerID(id), raft.ServerAddress(node.BindAddr), 0, 0); future.Error() != nil {
-			s.logger.Error("failed to add voter", zap.String("id", id), zap.String("bind_addr", node.BindAddr), zap.Error(future.Error()))
+		if future := s.raft.AddVoter(raft.ServerID(id), raft.ServerAddress(node.RaftAddress), 0, 0); future.Error() != nil {
+			s.logger.Error("failed to add voter", zap.String("id", id), zap.String("raft_address", node.RaftAddress), zap.Error(future.Error()))
 			return future.Error()
 		}
-		s.logger.Info("node has successfully joined", zap.String("id", id), zap.String("bind_addr", node.BindAddr))
+		s.logger.Info("node has successfully joined", zap.String("id", id), zap.String("raft_address", node.RaftAddress))
 	}
 
 	if err := s.join(id, node.Metadata); err != nil {
@@ -556,7 +556,7 @@ func (s *RaftServer) Node() (*protobuf.Node, error) {
 		return nil, err
 	}
 
-	node, ok := nodes[s.nodeId]
+	node, ok := nodes[s.id]
 	if !ok {
 		return nil, errors.ErrNotFound
 	}
@@ -576,8 +576,8 @@ func (s *RaftServer) Nodes() (map[string]*protobuf.Node, error) {
 	nodes := make(map[string]*protobuf.Node, 0)
 	for _, server := range cf.Configuration().Servers {
 		nodes[string(server.ID)] = &protobuf.Node{
-			BindAddr: string(server.Address),
-			Metadata: s.fsm.getMetadata(string(server.ID)),
+			RaftAddress: string(server.Address),
+			Metadata:    s.fsm.getMetadata(string(server.ID)),
 		}
 	}
 

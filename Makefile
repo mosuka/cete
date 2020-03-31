@@ -5,7 +5,7 @@ CGO_ENABLED ?= 0
 CGO_CFLAGS ?=
 CGO_LDFLAGS ?=
 BUILD_TAGS ?=
-VERSION ?= $(shell git tag -l --sort=-v:refname | head -1)
+VERSION ?=
 BIN_EXT ?=
 DOCKER_REPOSITORY ?= mosuka
 
