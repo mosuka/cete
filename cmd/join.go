@@ -15,7 +15,7 @@ import (
 var (
 	joinCmd = &cobra.Command{
 		Use:   "join ID GRPC_ADDRESS",
-		Args: cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(2),
 		Short: "Join a node to the cluster",
 		Long:  "Join a node to the cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {

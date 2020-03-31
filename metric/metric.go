@@ -1,17 +1,3 @@
-//  Copyright (c) 2020 Minoru Osuka
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 		http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package metric
 
 import (
@@ -24,132 +10,230 @@ var (
 	Registry = prometheus.NewRegistry()
 
 	// Create some standard server metrics.
-	GrpcMetrics = grpcprometheus.NewServerMetrics()
+	GrpcMetrics = grpcprometheus.NewServerMetrics(
+		func(o *prometheus.CounterOpts) {
+			o.Namespace = "cete"
+		},
+	)
+
+	// Raft node state metric
+	RaftStateMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "state",
+		Help:      "Node state. 0:Follower, 1:Candidate, 2:Leader, 3:Shutdown",
+	}, []string{"id"})
+
+	RaftTermMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "term",
+		Help:      "Term.",
+	}, []string{"id"})
+
+	RaftLastLogIndexMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "last_log_index",
+		Help:      "Last log index.",
+	}, []string{"id"})
+
+	RaftLastLogTermMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "last_log_term",
+		Help:      "Last log term.",
+	}, []string{"id"})
+
+	RaftCommitIndexMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "commit_index",
+		Help:      "Commit index.",
+	}, []string{"id"})
+
+	RaftAppliedIndexMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "applied_index",
+		Help:      "Applied index.",
+	}, []string{"id"})
+
+	RaftFsmPendingMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "fsm_pending",
+		Help:      "FSM pending.",
+	}, []string{"id"})
+
+	RaftLastSnapshotIndexMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "last_snapshot_index",
+		Help:      "Last snapshot index.",
+	}, []string{"id"})
+
+	RaftLastSnapshotTermMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "last_snapshot_term",
+		Help:      "Last snapshot term.",
+	}, []string{"id"})
+
+	RaftLatestConfigurationIndexMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "latest_configuration_index",
+		Help:      "Latest configuration index.",
+	}, []string{"id"})
+
+	RaftNumPeersMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "num_peers",
+		Help:      "Number of peers.",
+	}, []string{"id"})
+
+	RaftLastContactMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "last_copntact",
+		Help:      "Last contact.",
+	}, []string{"id"})
+
+	RaftNumNodesMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "raft",
+		Name:      "num_nodes",
+		Help:      "Number of nodes.",
+	}, []string{"id"})
+
+	KvsNumReadsMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_reads",
+		Help:      "Number of reads.",
+	}, []string{"id"})
+
+	KvsNumWritesMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_writes",
+		Help:      "Number of writes.",
+	}, []string{"id"})
+
+	KvsNumBytesReadMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_bytes_read",
+		Help:      "Number of bytes read.",
+	}, []string{"id"})
+
+	KvsNumBytesWrittenMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_bytes_written",
+		Help:      "Number of bytes written.",
+	}, []string{"id"})
+
+	KvsNumLSMGetsMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_lsm_gets",
+		Help:      "Number of LSM gets.",
+	}, []string{"id"})
+
+	KvsNumLSMBloomHitsMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_lsm_bloom_Hits",
+		Help:      "Number of LSM bloom hits.",
+	}, []string{"id"})
+
+	KvsNumGetsMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_gets",
+		Help:      "Number of gets.",
+	}, []string{"id"})
+
+	KvsNumPutsMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_puts",
+		Help:      "Number of puts.",
+	}, []string{"id"})
+
+	KvsNumBlockedPutsMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_blocked_puts",
+		Help:      "Number of blocked puts.",
+	}, []string{"id"})
+
+	KvsNumMemtablesGetsMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "num_memtables_gets",
+		Help:      "Number of memtables gets.",
+	}, []string{"id"})
+
+	KvsLSMSizeMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "lsm_size",
+		Help:      "LSM size.",
+	}, []string{"id", "path"})
+
+	KvsVlogSizeMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "vlog_size",
+		Help:      "Vlog size.",
+	}, []string{"id", "path"})
+
+	KvsPendingWritesMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cete",
+		Subsystem: "kvs",
+		Name:      "pending_writes",
+		Help:      "Pending writes.",
+	}, []string{"id", "path"})
 )
 
 func init() {
 	// Register standard server metrics and customized metrics to registry.
-	Registry.MustRegister(GrpcMetrics)
-	GrpcMetrics.EnableHandlingTimeHistogram()
-	//reg.MustRegister(grpcMetrics, customizedCounterMetric)
-	//customizedCounterMetric.WithLabelValues("Test")
+	Registry.MustRegister(
+		GrpcMetrics,
+		RaftStateMetric,
+		RaftTermMetric,
+		RaftLastLogIndexMetric,
+		RaftLastLogTermMetric,
+		RaftCommitIndexMetric,
+		RaftAppliedIndexMetric,
+		RaftFsmPendingMetric,
+		RaftLastSnapshotIndexMetric,
+		RaftLastSnapshotTermMetric,
+		RaftLatestConfigurationIndexMetric,
+		RaftNumPeersMetric,
+		RaftLastContactMetric,
+		RaftNumNodesMetric,
+		KvsNumReadsMetric,
+		KvsNumWritesMetric,
+		KvsNumBytesReadMetric,
+		KvsNumBytesWrittenMetric,
+		KvsNumLSMGetsMetric,
+		KvsNumLSMBloomHitsMetric,
+		KvsNumGetsMetric,
+		KvsNumPutsMetric,
+		KvsNumBlockedPutsMetric,
+		KvsNumMemtablesGetsMetric,
+		KvsLSMSizeMetric,
+		KvsVlogSizeMetric,
+		KvsPendingWritesMetric,
+	)
+	GrpcMetrics.EnableHandlingTimeHistogram(
+		func(o *prometheus.HistogramOpts) {
+			o.Namespace = "cete"
+		},
+	)
 }
-
-//var (
-//	namespace     = "cete"
-//	grpcSubsystem = "grpc"
-//	httpSubsystem = "http"
-//	kvsSubsystem  = "kvs"
-//
-//	GrpcDurationSeconds = prometheus.NewHistogramVec(
-//		prometheus.HistogramOpts{
-//			Namespace: namespace,
-//			Subsystem: grpcSubsystem,
-//			Name:      "duration_seconds",
-//			Help:      "The index operation durations in seconds.",
-//		},
-//		[]string{
-//			"method",
-//		},
-//	)
-//	GrpcOperationsTotal = prometheus.NewCounterVec(
-//		prometheus.CounterOpts{
-//			Namespace: namespace,
-//			Subsystem: grpcSubsystem,
-//			Name:      "operations_total",
-//			Help:      "The number of index operations.",
-//		},
-//		[]string{
-//			"method",
-//		},
-//	)
-//
-//	HttpDurationSeconds = prometheus.NewHistogramVec(
-//		prometheus.HistogramOpts{
-//			Namespace: namespace,
-//			Subsystem: httpSubsystem,
-//			Name:      "duration_seconds",
-//			Help:      "The index operation durations in seconds.",
-//		},
-//		[]string{
-//			"method",
-//			"uri",
-//			"protocol",
-//			"referer",
-//			"user_agent",
-//		},
-//	)
-//	HttpRequestsTotal = prometheus.NewCounterVec(
-//		prometheus.CounterOpts{
-//			Namespace: namespace,
-//			Subsystem: httpSubsystem,
-//			Name:      "requests_total",
-//			Help:      "The number of index operations.",
-//		},
-//		[]string{
-//			"method",
-//			"uri",
-//			"protocol",
-//			"referer",
-//			"user_agent",
-//		},
-//	)
-//	HttpResponsesTotal = prometheus.NewCounterVec(
-//		prometheus.CounterOpts{
-//			Namespace: namespace,
-//			Subsystem: httpSubsystem,
-//			Name:      "responses_total",
-//			Help:      "The number of index operations.",
-//		},
-//		[]string{
-//			"method",
-//			"uri",
-//			"protocol",
-//			"referer",
-//			"user_agent",
-//			"status",
-//		},
-//	)
-//)
-//
-//func init() {
-//	prometheus.MustRegister(GrpcDurationSeconds)
-//	prometheus.MustRegister(GrpcOperationsTotal)
-//
-//	prometheus.MustRegister(HttpDurationSeconds)
-//	prometheus.MustRegister(HttpRequestsTotal)
-//}
-//
-//func RecordGrpcMetrics(start time.Time, funcName string) {
-//	GrpcDurationSeconds.With(
-//		prometheus.Labels{
-//			"method": funcName,
-//		},
-//	).Observe(float64(time.Since(start)) / float64(time.Second))
-//
-//	GrpcOperationsTotal.With(
-//		prometheus.Labels{
-//			"method": funcName,
-//		},
-//	).Inc()
-//
-//	return
-//}
-//
-////func RecordHttpMetrics(start time.Time, method string, uri string) {
-////	HttpDurationSeconds.With(
-////		prometheus.Labels{
-////			"method": method,
-////			"uri":    uri,
-////		},
-////	).Observe(float64(time.Since(start)) / float64(time.Second))
-////
-////	HttpOperationsTotal.With(
-////		prometheus.Labels{
-////			"method": method,
-////			"uri":    uri,
-////		},
-////	).Inc()
-////
-////	return
-////}

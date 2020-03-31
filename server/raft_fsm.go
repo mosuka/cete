@@ -235,6 +235,10 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 	}
 }
 
+func (f *RaftFSM) Stats() map[string]string {
+	return f.kvs.Stats()
+}
+
 func (f *RaftFSM) Snapshot() (raft.FSMSnapshot, error) {
 	return &KVSFSMSnapshot{
 		kvs:    f.kvs,

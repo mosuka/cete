@@ -8,7 +8,7 @@ peer_grpc_address: ""
 #key_file: "./etc/cete-key.pem"
 #common_name: "localhost"
 log_level: "INFO"
-#log_file: "/tmp/cete/node1/cete.log"
+log_file: ""
 #log_max_size: 500
 #log_max_backups: 3
 #log_max_age: 30

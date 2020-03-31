@@ -15,7 +15,7 @@ import (
 var (
 	setCmd = &cobra.Command{
 		Use:   "set KEY VALUE",
-		Args: cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(2),
 		Short: "Set a key-value",
 		Long:  "Set a key-value",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -36,11 +36,11 @@ var (
 			}()
 
 			req := &protobuf.SetRequest{
-				Key: key,
+				Key:   key,
 				Value: []byte(value),
 			}
 
-			if err := c.Set(req);  err != nil {
+			if err := c.Set(req); err != nil {
 				return err
 			}
 

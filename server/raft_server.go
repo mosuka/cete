@@ -1,24 +1,13 @@
-// Copyright (c) 2020 Minoru Osuka
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 		http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package server
 
 import (
+	"encoding/json"
+	"github.com/mosuka/cete/metric"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	raftbadgerdb "github.com/bbva/raft-badger"
@@ -212,8 +201,136 @@ func (s *RaftServer) startWatchCluster(checkInterval time.Duration) {
 			s.logger.Info("became a leader", zap.String("leaderAddr", string(s.raft.Leader())))
 		case event := <-s.fsm.applyCh:
 			s.applyCh <- event
-			//case <-ticker.C:
-			//	s.logger.Debug("tick")
+		case <-ticker.C:
+			raftStats := s.raft.Stats()
+
+			switch raftStats["state"] {
+			case "Follower":
+				metric.RaftStateMetric.WithLabelValues(s.nodeId).Set(float64(raft.Follower))
+			case "Candidate":
+				metric.RaftStateMetric.WithLabelValues(s.nodeId).Set(float64(raft.Candidate))
+			case "Leader":
+				metric.RaftStateMetric.WithLabelValues(s.nodeId).Set(float64(raft.Leader))
+			case "Shutdown":
+				metric.RaftStateMetric.WithLabelValues(s.nodeId).Set(float64(raft.Shutdown))
+			}
+
+			if term, err := strconv.ParseFloat(raftStats["term"], 64); err == nil {
+				metric.RaftTermMetric.WithLabelValues(s.nodeId).Set(term)
+			}
+
+			if lastLogIndex, err := strconv.ParseFloat(raftStats["last_log_index"], 64); err == nil {
+				metric.RaftLastLogIndexMetric.WithLabelValues(s.nodeId).Set(lastLogIndex)
+			}
+
+			if lastLogTerm, err := strconv.ParseFloat(raftStats["last_log_term"], 64); err == nil {
+				metric.RaftLastLogTermMetric.WithLabelValues(s.nodeId).Set(lastLogTerm)
+			}
+
+			if commitIndex, err := strconv.ParseFloat(raftStats["commit_index"], 64); err == nil {
+				metric.RaftCommitIndexMetric.WithLabelValues(s.nodeId).Set(commitIndex)
+			}
+
+			if appliedIndex, err := strconv.ParseFloat(raftStats["applied_index"], 64); err == nil {
+				metric.RaftAppliedIndexMetric.WithLabelValues(s.nodeId).Set(appliedIndex)
+			}
+
+			if fsmPending, err := strconv.ParseFloat(raftStats["fsm_pending"], 64); err == nil {
+				metric.RaftFsmPendingMetric.WithLabelValues(s.nodeId).Set(fsmPending)
+			}
+
+			if lastSnapshotIndex, err := strconv.ParseFloat(raftStats["last_snapshot_index"], 64); err == nil {
+				metric.RaftLastSnapshotIndexMetric.WithLabelValues(s.nodeId).Set(lastSnapshotIndex)
+			}
+
+			if lastSnapshotTerm, err := strconv.ParseFloat(raftStats["last_snapshot_term"], 64); err == nil {
+				metric.RaftLastSnapshotTermMetric.WithLabelValues(s.nodeId).Set(lastSnapshotTerm)
+			}
+
+			if latestConfigurationIndex, err := strconv.ParseFloat(raftStats["latest_configuration_index"], 64); err == nil {
+				metric.RaftLatestConfigurationIndexMetric.WithLabelValues(s.nodeId).Set(latestConfigurationIndex)
+			}
+
+			if numPeers, err := strconv.ParseFloat(raftStats["num_peers"], 64); err == nil {
+				metric.RaftNumPeersMetric.WithLabelValues(s.nodeId).Set(numPeers)
+			}
+
+			if lastContact, err := strconv.ParseFloat(raftStats["last_contact"], 64); err == nil {
+				metric.RaftLastContactMetric.WithLabelValues(s.nodeId).Set(lastContact)
+			}
+
+			if nodes, err := s.Nodes(); err == nil {
+				metric.RaftNumNodesMetric.WithLabelValues(s.nodeId).Set(float64(len(nodes)))
+			}
+
+			kvsStats := s.fsm.Stats()
+
+			if numReads, err := strconv.ParseFloat(kvsStats["num_reads"], 64); err == nil {
+				metric.KvsNumReadsMetric.WithLabelValues(s.nodeId).Set(numReads)
+			}
+
+			if numWrites, err := strconv.ParseFloat(kvsStats["num_writes"], 64); err == nil {
+				metric.KvsNumWritesMetric.WithLabelValues(s.nodeId).Set(numWrites)
+			}
+
+			if numBytesRead, err := strconv.ParseFloat(kvsStats["num_bytes_read"], 64); err == nil {
+				metric.KvsNumBytesReadMetric.WithLabelValues(s.nodeId).Set(numBytesRead)
+			}
+
+			if numBytesWritten, err := strconv.ParseFloat(kvsStats["num_bytes_written"], 64); err == nil {
+				metric.KvsNumBytesWrittenMetric.WithLabelValues(s.nodeId).Set(numBytesWritten)
+			}
+
+			var numLsmGets map[string]interface{}
+			if err := json.Unmarshal([]byte(kvsStats["num_lsm_gets"]), &numLsmGets); err == nil {
+				for key, value := range numLsmGets {
+					s.logger.Info("", zap.String("key", key), zap.Any("value", value))
+				}
+			}
+
+			var numLsmBloomHits map[string]interface{}
+			if err := json.Unmarshal([]byte(kvsStats["num_lsm_bloom_Hits"]), &numLsmBloomHits); err == nil {
+				for key, value := range numLsmBloomHits {
+					s.logger.Info("", zap.String("key", key), zap.Any("value", value))
+				}
+			}
+
+			if numGets, err := strconv.ParseFloat(kvsStats["num_gets"], 64); err == nil {
+				metric.KvsNumGetsMetric.WithLabelValues(s.nodeId).Set(numGets)
+			}
+
+			if numPuts, err := strconv.ParseFloat(kvsStats["num_puts"], 64); err == nil {
+				metric.KvsNumPutsMetric.WithLabelValues(s.nodeId).Set(numPuts)
+			}
+
+			if numBlockedPuts, err := strconv.ParseFloat(kvsStats["num_blocked_puts"], 64); err == nil {
+				metric.KvsNumBlockedPutsMetric.WithLabelValues(s.nodeId).Set(numBlockedPuts)
+			}
+
+			if numMemtablesGets, err := strconv.ParseFloat(kvsStats["num_memtables_gets"], 64); err == nil {
+				metric.KvsNumMemtablesGetsMetric.WithLabelValues(s.nodeId).Set(numMemtablesGets)
+			}
+
+			var lsmSize map[string]interface{}
+			if err := json.Unmarshal([]byte(kvsStats["lsm_size"]), &lsmSize); err == nil {
+				for key, value := range lsmSize {
+					metric.KvsLSMSizeMetric.WithLabelValues(s.nodeId, key).Set(value.(float64))
+				}
+			}
+
+			var vlogSize map[string]interface{}
+			if err := json.Unmarshal([]byte(kvsStats["vlog_size"]), &vlogSize); err == nil {
+				for key, value := range vlogSize {
+					metric.KvsVlogSizeMetric.WithLabelValues(s.nodeId, key).Set(value.(float64))
+				}
+			}
+
+			var pendingWrites map[string]interface{}
+			if err := json.Unmarshal([]byte(kvsStats["pending_writes"]), &pendingWrites); err == nil {
+				for key, value := range pendingWrites {
+					metric.KvsPendingWritesMetric.WithLabelValues(s.nodeId, key).Set(value.(float64))
+				}
+			}
 		}
 	}
 }
@@ -286,8 +403,12 @@ func (s *RaftServer) WaitForDetectLeader(timeout time.Duration) error {
 	return nil
 }
 
-func (s *RaftServer) State() string {
-	return s.raft.State().String()
+func (s *RaftServer) State() raft.RaftState {
+	return s.raft.State()
+}
+
+func (s *RaftServer) StateStr() string {
+	return s.State().String()
 }
 
 func (s *RaftServer) Exist(id string) (bool, error) {
@@ -440,7 +561,7 @@ func (s *RaftServer) Node() (*protobuf.Node, error) {
 		return nil, errors.ErrNotFound
 	}
 
-	node.State = s.State()
+	node.State = s.StateStr()
 
 	return node, nil
 }

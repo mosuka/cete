@@ -171,7 +171,7 @@ func init() {
 	startCmd.PersistentFlags().StringVar(&raftAddress, "raft-address", ":7000", "Raft server listen address")
 	startCmd.PersistentFlags().StringVar(&grpcAddress, "grpc-address", ":9000", "gRPC server listen address")
 	startCmd.PersistentFlags().StringVar(&httpAddress, "http-address", ":8000", "HTTP server listen address")
-	startCmd.PersistentFlags().StringVar(&dataDirectory, "data-directory", "./data", "data directory which store the key-value store data and Raft logs")
+	startCmd.PersistentFlags().StringVar(&dataDirectory, "data-directory", "/tmp/cete/data", "data directory which store the key-value store data and Raft logs")
 	startCmd.PersistentFlags().StringVar(&peerGrpcAddress, "peer-grpc-address", "", "listen address of the existing gRPC server in the joining cluster")
 	startCmd.PersistentFlags().StringVar(&certificateFile, "certificate-file", "", "path to the client server TLS certificate file")
 	startCmd.PersistentFlags().StringVar(&keyFile, "key-file", "", "path to the client server TLS key file")
