@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+- Refactoring protobuf #33 @mosuka
+
 ## [v0.3.0] 2020-03-31
 
 - Add health check endpoints #32 @mosuka
