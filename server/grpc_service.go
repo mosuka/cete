@@ -173,6 +173,34 @@ func (s *GRPCService) stopWatchCluster() {
 	}
 }
 
+func (s *GRPCService) LivenessCheck(ctx context.Context, req *empty.Empty) (*protobuf.LivenessCheckResponse, error) {
+	resp := &protobuf.LivenessCheckResponse{}
+
+	resp.Alive = true
+
+	return resp, nil
+}
+
+func (s *GRPCService) ReadinessCheck(ctx context.Context, req *empty.Empty) (*protobuf.ReadinessCheckResponse, error) {
+	resp := &protobuf.ReadinessCheckResponse{}
+
+	timeout := 10 * time.Second
+	if err := s.raftServer.WaitForDetectLeader(timeout); err != nil {
+		s.logger.Error("missing leader node", zap.Error(err))
+		return resp, status.Error(codes.Internal, err.Error())
+	}
+
+	if s.raftServer.State() == raft.Candidate || s.raftServer.State() == raft.Shutdown {
+		err := errors.ErrNodeNotReady
+		s.logger.Error(err.Error(), zap.Error(err))
+		return resp, status.Error(codes.Internal, err.Error())
+	}
+
+	resp.Ready = true
+
+	return resp, nil
+}
+
 func (s *GRPCService) Join(ctx context.Context, req *protobuf.JoinRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 

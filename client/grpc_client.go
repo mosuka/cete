@@ -87,6 +87,22 @@ func (c *GRPCClient) Target() string {
 	return c.conn.Target()
 }
 
+func (c *GRPCClient) LivenessCheck(opts ...grpc.CallOption) (*protobuf.LivenessCheckResponse, error) {
+	if resp, err := c.client.LivenessCheck(c.ctx, &empty.Empty{}, opts...); err != nil {
+		return nil, err
+	} else {
+		return resp, nil
+	}
+}
+
+func (c *GRPCClient) ReadinessCheck(opts ...grpc.CallOption) (*protobuf.ReadinessCheckResponse, error) {
+	if resp, err := c.client.ReadinessCheck(c.ctx, &empty.Empty{}, opts...); err != nil {
+		return nil, err
+	} else {
+		return resp, nil
+	}
+}
+
 func (c *GRPCClient) Join(req *protobuf.JoinRequest, opts ...grpc.CallOption) error {
 	if _, err := c.client.Join(c.ctx, req, opts...); err != nil {
 		return err
