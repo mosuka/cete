@@ -15,7 +15,7 @@ import (
 var (
 	deleteCmd = &cobra.Command{
 		Use:   "delete KEY",
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		Short: "Delete a key-value",
 		Long:  "Delete a key-value",
 		RunE: func(cmd *cobra.Command, args []string) error {

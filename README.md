@@ -94,7 +94,7 @@ $ make GOOS=darwin dist
 Starting cete is easy as follows:
 
 ```bash
-$ ./bin/cete start --id=node1 --bind-addr=:7000 --grpc-addr=:9000 --http-addr=:8000 --data-dir=/tmp/cete/node1
+$ ./bin/cete start --id=node1 --raft-address=:7000 --grpc-address=:9000 --http-address=:8000 --data-directory=/tmp/cete/node1
 ```
 
 You can get the node information with the following command:
@@ -179,8 +179,8 @@ $ curl -X DELETE 'http://127.0.0.1:8000/v1/data/1'
 Cete is easy to bring up the cluster. Cete node is already running, but that is not fault tolerant. If you need to increase the fault tolerance, bring up 2 more data nodes like so:
 
 ```bash
-$ ./bin/cete start --id=node2 --bind-addr=:7001 --grpc-addr=:9001 --http-addr=:8001 --data-dir=/tmp/cete/node2 --peer-grpc-addr=:9000
-$ ./bin/cete start --id=node3 --bind-addr=:7002 --grpc-addr=:9002 --http-addr=:8002 --data-dir=/tmp/cete/node3 --peer-grpc-addr=:9000
+$ ./bin/cete start --id=node2 --raft-address=:7001 --grpc-address=:9001 --http-address=:8001 --data-directory=/tmp/cete/node2 --peer-grpc-address=:9000
+$ ./bin/cete start --id=node3 --raft-address=:7002 --grpc-address=:9002 --http-address=:8002 --data-directory=/tmp/cete/node3 --peer-grpc-address=:9000
 ```
 
 _Above example shows each Cete node running on the same host, so each node must listen on different ports. This would not be necessary if each node ran on a different host._

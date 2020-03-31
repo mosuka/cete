@@ -15,7 +15,7 @@ import (
 var (
 	getCmd = &cobra.Command{
 		Use:   "get KEY",
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		Short: "Get a key-value",
 		Long:  "Get a key-value",
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -15,7 +15,7 @@ import (
 var (
 	leaveCmd = &cobra.Command{
 		Use:   "leave ID",
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		Short: "Leave a node from the cluster",
 		Long:  "Leave a node from the cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
