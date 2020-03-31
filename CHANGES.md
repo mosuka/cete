@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Add some metrics #31 @mosuka
 - Allow CLI options to be read from the configuration file #29 @mosuka
 - Fix gateway bug #26 @mosuka
 - Support TLS #25 @mosuka
