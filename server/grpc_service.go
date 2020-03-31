@@ -19,10 +19,10 @@ import (
 )
 
 type GRPCService struct {
-	raftServer   *RaftServer
-	certFile     string
-	certHostname string
-	logger       *zap.Logger
+	raftServer      *RaftServer
+	certificateFile string
+	commonName      string
+	logger          *zap.Logger
 
 	watchMutex sync.RWMutex
 	watchChans map[chan protobuf.WatchResponse]struct{}
@@ -33,12 +33,12 @@ type GRPCService struct {
 	watchClusterDoneCh chan struct{}
 }
 
-func NewGRPCService(raftServer *RaftServer, certFile string, certHostname string, logger *zap.Logger) (*GRPCService, error) {
+func NewGRPCService(raftServer *RaftServer, certificateFile string, commonName string, logger *zap.Logger) (*GRPCService, error) {
 	return &GRPCService{
-		raftServer:   raftServer,
-		certFile:     certFile,
-		certHostname: certHostname,
-		logger:       logger,
+		raftServer:      raftServer,
+		certificateFile: certificateFile,
+		commonName:      commonName,
+		logger:          logger,
 
 		watchChans: make(map[chan protobuf.WatchResponse]struct{}),
 
@@ -105,34 +105,34 @@ func (s *GRPCService) startWatchCluster(checkInterval time.Duration) {
 				s.logger.Warn("failed to get cluster info", zap.String("err", err.Error()))
 			}
 			for id, node := range nodes {
-				if id == s.raftServer.nodeId {
+				if id == s.raftServer.id {
 					continue
 				}
 
-				if node.Metadata == nil || node.Metadata.GrpcAddr == "" {
+				if node.Metadata == nil || node.Metadata.GrpcAddress == "" {
 					s.logger.Debug("gRPC address missing", zap.String("id", id))
 					continue
 				}
 				if c, ok := s.peerClients[id]; ok {
-					if c.Target() != node.Metadata.GrpcAddr {
-						s.logger.Debug("close client", zap.String("id", id), zap.String("grpc_addr", c.Target()))
+					if c.Target() != node.Metadata.GrpcAddress {
+						s.logger.Debug("close client", zap.String("id", id), zap.String("grpc_address", c.Target()))
 						delete(s.peerClients, id)
 						if err := c.Close(); err != nil {
-							s.logger.Warn("failed to close client", zap.String("id", id), zap.String("grpc_addr", c.Target()), zap.Error(err))
+							s.logger.Warn("failed to close client", zap.String("id", id), zap.String("grpc_address", c.Target()), zap.Error(err))
 						}
-						s.logger.Debug("create client", zap.String("id", id), zap.String("grpc_addr", node.Metadata.GrpcAddr))
-						if newClient, err := client.NewGRPCClientWithContextTLS(node.Metadata.GrpcAddr, context.TODO(), s.certFile, s.certHostname); err == nil {
+						s.logger.Debug("create client", zap.String("id", id), zap.String("grpc_address", node.Metadata.GrpcAddress))
+						if newClient, err := client.NewGRPCClientWithContextTLS(node.Metadata.GrpcAddress, context.TODO(), s.certificateFile, s.commonName); err == nil {
 							s.peerClients[id] = newClient
 						} else {
-							s.logger.Warn("failed to create client", zap.String("id", id), zap.String("grpc_addr", c.Target()), zap.Error(err))
+							s.logger.Warn("failed to create client", zap.String("id", id), zap.String("grpc_address", c.Target()), zap.Error(err))
 						}
 					}
 				} else {
-					s.logger.Debug("create client", zap.String("id", id), zap.String("grpc_addr", node.Metadata.GrpcAddr))
-					if newClient, err := client.NewGRPCClientWithContextTLS(node.Metadata.GrpcAddr, context.TODO(), s.certFile, s.certHostname); err == nil {
+					s.logger.Debug("create client", zap.String("id", id), zap.String("grpc_address", node.Metadata.GrpcAddress))
+					if newClient, err := client.NewGRPCClientWithContextTLS(node.Metadata.GrpcAddress, context.TODO(), s.certificateFile, s.commonName); err == nil {
 						s.peerClients[id] = newClient
 					} else {
-						s.logger.Warn("failed to create client", zap.String("id", id), zap.String("grpc_addr", c.Target()), zap.Error(err))
+						s.logger.Warn("failed to create client", zap.String("id", id), zap.String("grpc_address", c.Target()), zap.Error(err))
 					}
 				}
 			}
@@ -140,10 +140,10 @@ func (s *GRPCService) startWatchCluster(checkInterval time.Duration) {
 			// close clients for non-existent peer nodes
 			for id, c := range s.peerClients {
 				if _, exist := nodes[id]; !exist {
-					s.logger.Debug("close client", zap.String("id", id), zap.String("grpc_addr", c.Target()))
+					s.logger.Debug("close client", zap.String("id", id), zap.String("grpc_address", c.Target()))
 					delete(s.peerClients, id)
 					if err := c.Close(); err != nil {
-						s.logger.Warn("failed to close old client", zap.String("id", id), zap.String("grpc_addr", c.Target()), zap.Error(err))
+						s.logger.Warn("failed to close old client", zap.String("id", id), zap.String("grpc_address", c.Target()), zap.Error(err))
 					}
 				}
 			}
@@ -165,10 +165,10 @@ func (s *GRPCService) stopWatchCluster() {
 
 	s.logger.Info("close all peer clients")
 	for id, c := range s.peerClients {
-		s.logger.Debug("close client", zap.String("id", id), zap.String("grpc_addr", c.Target()))
+		s.logger.Debug("close client", zap.String("id", id), zap.String("grpc_address", c.Target()))
 		delete(s.peerClients, id)
 		if err := c.Close(); err != nil {
-			s.logger.Warn("failed to close client", zap.String("id", id), zap.String("grpc_addr", c.Target()), zap.Error(err))
+			s.logger.Warn("failed to close client", zap.String("id", id), zap.String("grpc_address", c.Target()), zap.Error(err))
 		}
 	}
 }
@@ -214,7 +214,7 @@ func (s *GRPCService) Join(ctx context.Context, req *protobuf.JoinRequest) (*emp
 		c := s.peerClients[clusterResp.Cluster.Leader]
 		err = c.Join(req)
 		if err != nil {
-			s.logger.Error("failed to forward request", zap.String("grpc_addr", c.Target()), zap.Error(err))
+			s.logger.Error("failed to forward request", zap.String("grpc_address", c.Target()), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -248,7 +248,7 @@ func (s *GRPCService) Leave(ctx context.Context, req *protobuf.LeaveRequest) (*e
 		c := s.peerClients[clusterResp.Cluster.Leader]
 		err = c.Leave(req)
 		if err != nil {
-			s.logger.Error("failed to forward request", zap.String("grpc_addr", c.Target()), zap.Error(err))
+			s.logger.Error("failed to forward request", zap.String("grpc_address", c.Target()), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -290,14 +290,14 @@ func (s *GRPCService) Cluster(ctx context.Context, req *empty.Empty) (*protobuf.
 	}
 
 	for id, node := range nodes {
-		if id == s.raftServer.nodeId {
+		if id == s.raftServer.id {
 			node.State = s.raftServer.StateStr()
 		} else {
 			c := s.peerClients[id]
 			nodeResp, err := c.Node()
 			if err != nil {
 				node.State = raft.Shutdown.String()
-				s.logger.Error("failed to get node info", zap.String("grpc_addr", node.Metadata.GrpcAddr), zap.String("err", err.Error()))
+				s.logger.Error("failed to get node info", zap.String("grpc_address", node.Metadata.GrpcAddress), zap.String("err", err.Error()))
 			} else {
 				node.State = nodeResp.Node.State
 			}
@@ -362,7 +362,7 @@ func (s *GRPCService) Set(ctx context.Context, req *protobuf.SetRequest) (*empty
 		c := s.peerClients[clusterResp.Cluster.Leader]
 		err = c.Set(req)
 		if err != nil {
-			s.logger.Error("failed to forward request", zap.String("grpc_addr", c.Target()), zap.Error(err))
+			s.logger.Error("failed to forward request", zap.String("grpc_address", c.Target()), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 
@@ -391,7 +391,7 @@ func (s *GRPCService) Delete(ctx context.Context, req *protobuf.DeleteRequest) (
 		c := s.peerClients[clusterResp.Cluster.Leader]
 		err = c.Delete(req)
 		if err != nil {
-			s.logger.Error("failed to forward request", zap.String("grpc_addr", c.Target()), zap.Error(err))
+			s.logger.Error("failed to forward request", zap.String("grpc_address", c.Target()), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
 		}
 

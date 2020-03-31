@@ -25,15 +25,15 @@ type GRPCClient struct {
 	logger *log.Logger
 }
 
-func NewGRPCClient(address string) (*GRPCClient, error) {
-	return NewGRPCClientWithContext(address, context.Background())
+func NewGRPCClient(grpc_address string) (*GRPCClient, error) {
+	return NewGRPCClientWithContext(grpc_address, context.Background())
 }
 
-func NewGRPCClientWithContext(address string, baseCtx context.Context) (*GRPCClient, error) {
-	return NewGRPCClientWithContextTLS(address, baseCtx, "", "")
+func NewGRPCClientWithContext(grpc_address string, baseCtx context.Context) (*GRPCClient, error) {
+	return NewGRPCClientWithContextTLS(grpc_address, baseCtx, "", "")
 }
 
-func NewGRPCClientWithContextTLS(address string, baseCtx context.Context, certFile string, certHostname string) (*GRPCClient, error) {
+func NewGRPCClientWithContextTLS(grpcAddress string, baseCtx context.Context, certificateFile string, commonName string) (*GRPCClient, error) {
 	dialOpts := []grpc.DialOption{
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallSendMsgSize(math.MaxInt64),
@@ -50,17 +50,17 @@ func NewGRPCClientWithContextTLS(address string, baseCtx context.Context, certFi
 
 	ctx, cancel := context.WithCancel(baseCtx)
 
-	if certFile == "" {
+	if certificateFile == "" {
 		dialOpts = append(dialOpts, grpc.WithInsecure())
 	} else {
-		creds, err := credentials.NewClientTLSFromFile(certFile, certHostname)
+		creds, err := credentials.NewClientTLSFromFile(certificateFile, commonName)
 		if err != nil {
 			return nil, err
 		}
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
 	}
 
-	conn, err := grpc.DialContext(ctx, address, dialOpts...)
+	conn, err := grpc.DialContext(ctx, grpcAddress, dialOpts...)
 	if err != nil {
 		cancel()
 		return nil, err

@@ -85,12 +85,12 @@ message ReadinessCheckResponse {
 }
 
 message Metadata {
-    string grpc_addr = 1;
-    string http_addr = 2;
+    string grpc_address = 1;
+    string http_address = 2;
 }
 
 message Node {
-    string bind_addr = 1;
+    string raft_address = 1;
     Metadata metadata = 2;
     string state = 3;
 }

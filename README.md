@@ -114,10 +114,10 @@ The result of the above command is:
 ```json
 {
   "node": {
-    "bind_addr": ":7000",
+    "raft_address": ":7000",
     "metadata": {
-      "grpc_addr": ":9000",
-      "http_addr": ":8000"
+      "grpc_address": ":9000",
+      "http_address": ":8000"
     },
     "state": "Leader"
   }
@@ -231,26 +231,26 @@ You can see the result in JSON format. The result of the above command is:
   "cluster": {
     "nodes": {
       "node1": {
-        "bind_addr": ":7000",
+        "raft_address": ":7000",
         "metadata": {
-          "grpc_addr": ":9000",
-          "http_addr": ":8000"
+          "grpc_address": ":9000",
+          "http_address": ":8000"
         },
         "state": "Leader"
       },
       "node2": {
-        "bind_addr": ":7001",
+        "raft_address": ":7001",
         "metadata": {
-          "grpc_addr": ":9001",
-          "http_addr": ":8001"
+          "grpc_address": ":9001",
+          "http_address": ":8001"
         },
         "state": "Follower"
       },
       "node3": {
-        "bind_addr": ":7002",
+        "raft_address": ":7002",
         "metadata": {
-          "grpc_addr": ":9002",
-          "http_addr": ":8002"
+          "grpc_address": ":9002",
+          "http_address": ":8002"
         },
         "state": "Follower"
       }
@@ -273,10 +273,10 @@ or, you can use the RESTful API as follows:
 ```bash
 $ curl -X PUT 'http://127.0.0.1:8000/v1/cluster/node2' --data-binary '
 {
-  "bind_addr": ":7001",
+  "raft_address": ":7001",
   "metadata": {
-    "grpc_addr": ":9001",
-    "http_addr": ":8001"
+    "grpc_address": ":9001",
+    "http_address": ":8001"
   }
 }
 '
@@ -297,13 +297,13 @@ $ curl -X DELETE 'http://127.0.0.1:8000/v1/cluster/node2'
 The following command indexes documents to any node in the cluster:
 
 ```bash
-$ ./bin/cete set --grpc-addr=:9000 1 value1
+$ ./bin/cete set 1 value1 --grpc-address=:9000 
 ```
 
 So, you can get the document from the node specified by the above command as follows:
 
 ```bash
-$ ./bin/cete get --grpc-addr=:9000 1
+$ ./bin/cete get 1 --grpc-address=:9000
 ```
 
 You can see the result. The result of the above command is:
@@ -315,8 +315,8 @@ value1
 You can also get the same document from other nodes in the cluster as follows:
 
 ```bash
-$ ./bin/cete get --grpc-addr=:9001 1
-$ ./bin/cete get --grpc-addr=:9002 1
+$ ./bin/cete get 1 --grpc-address=:9001
+$ ./bin/cete get 1 --grpc-address=:9002
 ```
 
 You can see the result. The result of the above command is:
@@ -400,15 +400,15 @@ writing new private key to 'key.pem'
 Starting a node with HTTPS enabled, node-to-node encryption, and with the above configuration file. It is assumed the HTTPS X.509 certificate and key are at the paths server.crt and key.pem respectively.
 
 ```bash
-$ ./bin/cete start --id=node1 --bind-addr=:7000 --grpc-addr=:9000 --http-addr=:8000 --data-dir=/tmp/cete/node1 --peer-grpc-addr=:9000 --cert-file=./etc/cert.pem --key-file=./etc/key.pem --cert-hostname=localhost
-$ ./bin/cete start --id=node2 --bind-addr=:7001 --grpc-addr=:9001 --http-addr=:8001 --data-dir=/tmp/cete/node2 --peer-grpc-addr=:9000 --cert-file=./etc/cert.pem --key-file=./etc/key.pem --cert-hostname=localhost
-$ ./bin/cete start --id=node3 --bind-addr=:7002 --grpc-addr=:9002 --http-addr=:8002 --data-dir=/tmp/cete/node3 --peer-grpc-addr=:9000 --cert-file=./etc/cert.pem --key-file=./etc/key.pem --cert-hostname=localhost
+$ ./bin/cete start --id=node1 --raft-address=:7000 --grpc-address=:9000 --http-address=:8000 --data-directory=/tmp/cete/node1 --peer-grpc-address=:9000 --certificate-file=./etc/cert.pem --key-file=./etc/key.pem --common-name=localhost
+$ ./bin/cete start --id=node2 --raft-address=:7001 --grpc-address=:9001 --http-address=:8001 --data-directory=/tmp/cete/node2 --peer-grpc-address=:9000 --certificate-file=./etc/cert.pem --key-file=./etc/key.pem --common-name=localhost
+$ ./bin/cete start --id=node3 --raft-address=:7002 --grpc-address=:9002 --http-address=:8002 --data-directory=/tmp/cete/node3 --peer-grpc-address=:9000 --certificate-file=./etc/cert.pem --key-file=./etc/key.pem --common-name=localhost
 ```
 
 You can access the cluster by adding a flag, such as the following command:
 
 ```bash
-$ ./bin/cete cluster --grpc-addr=:9000 --cert-file=./cert.pem --cert-hostname=localhost | jq .
+$ ./bin/cete cluster --grpc-address=:9000 --certificate-file=./cert.pem --common-name=localhost | jq .
 ```
 
 or

@@ -17,10 +17,10 @@ import (
 )
 
 type GRPCServer struct {
-	address  string
-	service  *GRPCService
-	server   *grpc.Server
-	listener net.Listener
+	grpcAddress string
+	service     *GRPCService
+	server      *grpc.Server
+	listener    net.Listener
 
 	certFile     string
 	keyFile      string
@@ -29,7 +29,7 @@ type GRPCServer struct {
 	logger *zap.Logger
 }
 
-func NewGRPCServer(address string, raftServer *RaftServer, certFile string, keyFile string, certHostname string, logger *zap.Logger) (*GRPCServer, error) {
+func NewGRPCServer(grpcAddress string, raftServer *RaftServer, certificateFile string, keyFile string, commonName string, logger *zap.Logger) (*GRPCServer, error) {
 	grpcLogger := logger.Named("grpc")
 
 	opts := []grpc.ServerOption{
@@ -58,11 +58,11 @@ func NewGRPCServer(address string, raftServer *RaftServer, certFile string, keyF
 		),
 	}
 
-	if certFile == "" && keyFile == "" {
+	if certificateFile == "" && keyFile == "" {
 		logger.Info("disabling TLS")
 	} else {
 		logger.Info("enabling TLS")
-		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+		creds, err := credentials.NewServerTLSFromFile(certificateFile, keyFile)
 		if err != nil {
 			logger.Error("failed to create credentials", zap.Error(err))
 		}
@@ -73,7 +73,7 @@ func NewGRPCServer(address string, raftServer *RaftServer, certFile string, keyF
 		opts...,
 	)
 
-	service, err := NewGRPCService(raftServer, certFile, certHostname, logger)
+	service, err := NewGRPCService(raftServer, certificateFile, commonName, logger)
 	if err != nil {
 		logger.Error("failed to create key value store service", zap.Error(err))
 		return nil, err
@@ -85,20 +85,20 @@ func NewGRPCServer(address string, raftServer *RaftServer, certFile string, keyF
 	metric.GrpcMetrics.InitializeMetrics(server)
 	grpc_prometheus.Register(server)
 
-	listener, err := net.Listen("tcp", address)
+	listener, err := net.Listen("tcp", grpcAddress)
 	if err != nil {
-		logger.Error("failed to create listener", zap.String("address", address), zap.Error(err))
+		logger.Error("failed to create listener", zap.String("grpc_address", grpcAddress), zap.Error(err))
 		return nil, err
 	}
 
 	return &GRPCServer{
-		address:      address,
+		grpcAddress:  grpcAddress,
 		service:      service,
 		server:       server,
 		listener:     listener,
-		certFile:     certFile,
+		certFile:     certificateFile,
 		keyFile:      keyFile,
-		certHostname: certHostname,
+		certHostname: commonName,
 		logger:       logger,
 	}, nil
 }
@@ -112,7 +112,7 @@ func (s *GRPCServer) Start() error {
 		_ = s.server.Serve(s.listener)
 	}()
 
-	s.logger.Info("gRPC server started", zap.String("addr", s.address))
+	s.logger.Info("gRPC server started", zap.String("grpc_address", s.grpcAddress))
 	return nil
 }
 
@@ -124,6 +124,6 @@ func (s *GRPCServer) Stop() error {
 	//s.server.GracefulStop()
 	s.server.Stop()
 
-	s.logger.Info("gRPC server stopped", zap.String("addr", s.address))
+	s.logger.Info("gRPC server stopped", zap.String("grpc_address", s.grpcAddress))
 	return nil
 }

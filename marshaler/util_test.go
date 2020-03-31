@@ -32,11 +32,11 @@ func TestMarshalAny(t *testing.T) {
 
 	// test kvs.Node
 	node := &protobuf.Node{
-		BindAddr: ":7000",
-		State:    "Leader",
+		RaftAddress: ":7000",
+		State:       "Leader",
 		Metadata: &protobuf.Metadata{
-			GrpcAddr: ":9000",
-			HttpAddr: ":8000",
+			GrpcAddress: ":9000",
+			HttpAddress: ":8000",
 		},
 	}
 
@@ -52,7 +52,7 @@ func TestMarshalAny(t *testing.T) {
 		t.Errorf("expected content to see %s, saw %s", expectedType, actualType)
 	}
 
-	expectedValue = []byte(`{"bind_addr":":7000","metadata":{"grpc_addr":":9000","http_addr":":8000"},"state":"Leader"}`)
+	expectedValue = []byte(`{"raft_address":":7000","metadata":{"grpc_address":":9000","http_address":":8000"},"state":"Leader"}`)
 	actualValue = nodeAny.Value
 	if !bytes.Equal(expectedValue, actualValue) {
 		t.Errorf("expected content to see %v, saw %v", expectedValue, actualValue)
@@ -85,7 +85,7 @@ func TestUnmarshalAny(t *testing.T) {
 	// raft.Node
 	dataAny = &any.Any{
 		TypeUrl: "protobuf.Node",
-		Value:   []byte(`{"bind_addr":":7000","metadata":{"grpc_addr":":9000","http_addr":":8000"},"state":"Leader"}`),
+		Value:   []byte(`{"raft_address":":7000","metadata":{"grpc_address":":9000","http_address":":8000"},"state":"Leader"}`),
 	}
 
 	data, err = MarshalAny(dataAny)
@@ -94,14 +94,14 @@ func TestUnmarshalAny(t *testing.T) {
 	}
 	node := data.(*protobuf.Node)
 
-	if node.BindAddr != ":7000" {
-		t.Errorf("expected content to see %v, saw %v", ":6060", node.BindAddr)
+	if node.RaftAddress != ":7000" {
+		t.Errorf("expected content to see %v, saw %v", ":7000", node.RaftAddress)
 	}
-	if node.Metadata.GrpcAddr != ":9000" {
-		t.Errorf("expected content to see %v, saw %v", ":5050", node.BindAddr)
+	if node.Metadata.GrpcAddress != ":9000" {
+		t.Errorf("expected content to see %v, saw %v", ":9000", node.Metadata.GrpcAddress)
 	}
-	if node.Metadata.HttpAddr != ":8000" {
-		t.Errorf("expected content to see %v, saw %v", ":5050", node.BindAddr)
+	if node.Metadata.HttpAddress != ":8000" {
+		t.Errorf("expected content to see %v, saw %v", ":8000", node.Metadata.HttpAddress)
 	}
 	if node.State != "Leader" {
 		t.Errorf("expected content to see %v, saw %v", "Leader", node.State)

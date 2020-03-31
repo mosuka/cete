@@ -33,20 +33,20 @@ func responseFilter(ctx context.Context, w http.ResponseWriter, resp proto.Messa
 }
 
 type GRPCGateway struct {
-	grpcGatewayAddr string
-	grpcAddr        string
+	httpAddress string
+	grpcAddress string
 
 	cancel   context.CancelFunc
 	listener net.Listener
 	mux      *runtime.ServeMux
 
-	certFile string
-	keyFile  string
+	certificateFile string
+	keyFile         string
 
 	logger *zap.Logger
 }
 
-func NewGRPCGateway(grpcGatewayAddr string, grpcAddr string, certFile string, keyFile string, certHostname string, logger *zap.Logger) (*GRPCGateway, error) {
+func NewGRPCGateway(httpAddress string, grpcAddress string, certificateFile string, keyFile string, commonName string, logger *zap.Logger) (*GRPCGateway, error) {
 	dialOpts := []grpc.DialOption{
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallSendMsgSize(math.MaxInt64),
@@ -69,52 +69,52 @@ func NewGRPCGateway(grpcGatewayAddr string, grpcAddr string, certFile string, ke
 		runtime.WithForwardResponseOption(responseFilter),
 	)
 
-	if certFile == "" {
+	if certificateFile == "" {
 		dialOpts = append(dialOpts, grpc.WithInsecure())
 	} else {
-		creds, err := credentials.NewClientTLSFromFile(certFile, certHostname)
+		creds, err := credentials.NewClientTLSFromFile(certificateFile, commonName)
 		if err != nil {
 			return nil, err
 		}
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
 	}
 
-	err := protobuf.RegisterKVSHandlerFromEndpoint(ctx, mux, grpcAddr, dialOpts)
+	err := protobuf.RegisterKVSHandlerFromEndpoint(ctx, mux, grpcAddress, dialOpts)
 	if err != nil {
 		logger.Error("failed to register KVS handler from endpoint", zap.Error(err))
 		return nil, err
 	}
 
-	listener, err := net.Listen("tcp", grpcGatewayAddr)
+	listener, err := net.Listen("tcp", httpAddress)
 	if err != nil {
 		logger.Error("failed to create key value store service", zap.Error(err))
 		return nil, err
 	}
 
 	return &GRPCGateway{
-		grpcGatewayAddr: grpcGatewayAddr,
-		grpcAddr:        grpcAddr,
+		httpAddress:     httpAddress,
+		grpcAddress:     grpcAddress,
 		listener:        listener,
 		mux:             mux,
 		cancel:          cancel,
-		certFile:        certFile,
+		certificateFile: certificateFile,
 		keyFile:         keyFile,
 		logger:          logger,
 	}, nil
 }
 
 func (s *GRPCGateway) Start() error {
-	if s.certFile == "" && s.keyFile == "" {
+	if s.certificateFile == "" && s.keyFile == "" {
 		go func() {
 			_ = http.Serve(s.listener, s.mux)
 		}()
 	} else {
 		go func() {
-			_ = http.ServeTLS(s.listener, s.mux, s.certFile, s.keyFile)
+			_ = http.ServeTLS(s.listener, s.mux, s.certificateFile, s.keyFile)
 		}()
 	}
 
-	s.logger.Info("gRPC gateway started", zap.String("addr", s.grpcGatewayAddr))
+	s.logger.Info("gRPC gateway started", zap.String("http_address", s.httpAddress))
 	return nil
 }
 
@@ -123,9 +123,9 @@ func (s *GRPCGateway) Stop() error {
 
 	err := s.listener.Close()
 	if err != nil {
-		s.logger.Error("failed to close listener", zap.String("addr", s.listener.Addr().String()), zap.Error(err))
+		s.logger.Error("failed to close listener", zap.String("http_address", s.listener.Addr().String()), zap.Error(err))
 	}
 
-	s.logger.Info("gRPC gateway stopped", zap.String("addr", s.grpcGatewayAddr))
+	s.logger.Info("gRPC gateway stopped", zap.String("http_address", s.httpAddress))
 	return nil
 }

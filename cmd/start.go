@@ -110,10 +110,10 @@ var (
 			joinRequest := &protobuf.JoinRequest{
 				Id: id,
 				Node: &protobuf.Node{
-					BindAddr: raftAddress,
+					RaftAddress: raftAddress,
 					Metadata: &protobuf.Metadata{
-						GrpcAddr: grpcAddress,
-						HttpAddr: httpAddress,
+						GrpcAddress: grpcAddress,
+						HttpAddress: httpAddress,
 					},
 				},
 			}
