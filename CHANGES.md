@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
-- Refactoring protobuf #33 @mosuka
+- Update protobuf #33 @mosuka
 
 ## [v0.3.0] 2020-03-31
 
