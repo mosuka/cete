@@ -367,16 +367,16 @@ $ docker run --rm --name cete-node1 \
     -p 9000:9000 \
     mosuka/cete:latest cete start \
       --id=node1 \
-      --bind-addr=:7000 \
-      --grpc-addr=:9000 \
-      --http-addr=:8000 \
-      --data-dir=/tmp/cete/node1
+      --raft-address=:7000 \
+      --grpc-address=:9000 \
+      --http-address=:8000 \
+      --data-directory=/tmp/cete/node1
 ```
 
 You can execute the command in docker container as follows:
 
 ```bash
-$ docker exec -it cete-node1 cete node --grpc-addr=:9000
+$ docker exec -it cete-node1 cete node --grpc-address=:9000
 ```
 
 ## Securing Cete
