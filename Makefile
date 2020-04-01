@@ -39,7 +39,7 @@ GO := GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) CGO_CFLAGS=$(CGO_
 .DEFAULT_GOAL := build
 
 .PHONY: show-env
-showenv:
+show-env:
 	@echo ">> show env"
 	@echo "   GOOS              = $(GOOS)"
 	@echo "   GOARCH            = $(GOARCH)"
