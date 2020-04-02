@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+- Fix bug in getting leader ID #34 @mosuka
+
 ## [v0.3.1] 2020-04-01
 
 - Update protobuf #33 @mosuka
