@@ -369,16 +369,15 @@ func (s *RaftServer) LeaderAddress(timeout time.Duration) (raft.ServerAddress, e
 }
 
 func (s *RaftServer) LeaderID(timeout time.Duration) (raft.ServerID, error) {
-	cf := s.raft.GetConfiguration()
-	err := cf.Error()
-	if err != nil {
-		s.logger.Error("failed to get Raft configuration", zap.Error(err))
-		return "", err
-	}
-
 	leaderAddr, err := s.LeaderAddress(timeout)
 	if err != nil {
 		s.logger.Error("failed to get leader address", zap.Error(err))
+		return "", err
+	}
+
+	cf := s.raft.GetConfiguration()
+	if err := cf.Error(); err != nil {
+		s.logger.Error("failed to get Raft configuration", zap.Error(err))
 		return "", err
 	}
 
