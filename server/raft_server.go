@@ -606,6 +606,20 @@ func (s *RaftServer) Get(req *protobuf.GetRequest) (*protobuf.GetResponse, error
 	return resp, nil
 }
 
+func (s *RaftServer) Scan(req *protobuf.ScanRequest) (*protobuf.ScanResponse, error) {
+	values, err := s.fsm.Scan(req.Prefix)
+	if err != nil {
+		s.logger.Error("failed to scan", zap.Any("prefix", req.Prefix), zap.Error(err))
+		return nil, err
+	}
+
+	resp := &protobuf.ScanResponse{
+		Values: values,
+	}
+
+	return resp, nil
+}
+
 func (s *RaftServer) Set(req *protobuf.SetRequest) error {
 	kvpAny := &any.Any{}
 	if err := marshaler.UnmarshalAny(req, kvpAny); err != nil {
