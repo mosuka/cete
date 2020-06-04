@@ -79,6 +79,34 @@ func (k *KVS) Get(key string) ([]byte, error) {
 	return value, nil
 }
 
+func (k *KVS) Scan(prefix string) ([][]byte, error) {
+	start := time.Now()
+
+	var value [][]byte
+	if err := k.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+		prefixBytes := []byte(prefix)
+		for it.Seek(prefixBytes); it.ValidForPrefix(prefixBytes); it.Next() {
+			item := it.Item()
+			err := item.Value(func(val []byte) error {
+				value = append(value, append([]byte{}, val...))
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		k.logger.Error("failed to scan value", zap.String("prefix", prefix), zap.Error(err))
+		return nil, err
+	}
+
+	k.logger.Debug("scan", zap.String("prefix", prefix), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	return value, nil
+}
+
 func (k *KVS) Set(key string, value []byte) error {
 	start := time.Now()
 

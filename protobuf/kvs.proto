@@ -55,12 +55,20 @@ service KVS {
             get: "/v1/data/{key=**}"
         };
     }
+
+    rpc Scan (ScanRequest) returns (ScanResponse) {
+        option (google.api.http) = {
+            get: "/v1/data/{prefix=**}"
+        };
+    }
+
     rpc Set (SetRequest) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             put: "/v1/data/{key=**}"
             body: "*"
         };
     }
+
     rpc Delete (DeleteRequest) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             delete: "/v1/data/{key=**}"
@@ -123,6 +131,14 @@ message GetRequest {
 
 message GetResponse {
     bytes value = 1;
+}
+
+message ScanRequest {
+    string prefix = 1;
+}
+
+message ScanResponse {
+    repeated bytes values = 1;
 }
 
 message SetRequest {
