@@ -71,6 +71,16 @@ func (f *RaftFSM) Get(key string) ([]byte, error) {
 	return value, nil
 }
 
+func (f *RaftFSM) Scan(prefix string) ([][]byte, error) {
+	values, err := f.kvs.Scan(prefix)
+	if err != nil {
+		f.logger.Error("failed to scan values", zap.String("prefix", prefix), zap.Error(err))
+		return nil, err
+	}
+
+	return values, nil
+}
+
 func (f *RaftFSM) applySet(key string, value []byte) interface{} {
 	err := f.kvs.Set(key, value)
 	if err != nil {
