@@ -1,0 +1,32 @@
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    container:
+      image: golang:1.14-buster
+      volumes:
+        - "/home/runner/work/$GITHUB_REPOSITORY:/go/src/github.com/$GITHUB_REPOSITORY"
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: restore from cache
+        uses: actions/cache@v1
+        with:
+          path: /go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      - name: download dependencies if not cached
+        run: |
+          if [ ! -d "/go/pkg/mod" ]; then
+            go mod tidy
+          fi
+
+      - name: test
+        run: go test -race -covermode=atomic -coverprofile coverage.out -v $(go list ./...)
