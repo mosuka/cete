@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- adds cicd #41 @vniche
 - adds scan endpoint #35 @vniche
 - Fix bug in getting leader ID #34 @mosuka
 
