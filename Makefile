@@ -34,7 +34,10 @@ ifeq ($(GOOS),windows)
   BIN_EXT = .exe
 endif
 
-GO := GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) CGO_CFLAGS=$(CGO_CFLAGS) CGO_LDFLAGS=$(CGO_LDFLAGS) GO111MODULE=$(GO111MODULE) go
+BUILD_FLAGS := GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=$(CGO_ENABLED) CGO_CFLAGS=$(CGO_CFLAGS) CGO_LDFLAGS=$(CGO_LDFLAGS) GO111MODULE=$(GO111MODULE)
+
+GO := $(BUILD_FLAGS) go
+GOX := $(BUILD_FLAGS) gox
 
 .DEFAULT_GOAL := build
 
@@ -71,12 +74,12 @@ format: show-env
 .PHONY: test
 test: show-env
 	@echo ">> testing all packages"
-	$(GO) test -v -tags="$(BUILD_TAGS)" $(PACKAGES)
+	$(GO) test -race -covermode=atomic -v -tags="$(BUILD_TAGS)" $(PACKAGES)
 
 .PHONY: coverage
 coverage: show-env
 	@echo ">> checking coverage of all packages"
-	$(GO) test -coverprofile=./cover.out -tags="$(BUILD_TAGS)" $(PACKAGES)
+	$(GO) test -race -covermode=atomic -coverprofile cover.out -tags="$(BUILD_TAGS)" $(PACKAGES)
 	$(GO) tool cover -html=cover.out -o cover.html
 
 .PHONY: clean
@@ -89,7 +92,8 @@ clean: show-env
 .PHONY: build
 build: show-env
 	@echo ">> building binaries"
-	for target_pkg in $(TARGET_PACKAGES); do echo $$target_pkg; $(GO) build -tags="$(BUILD_TAGS)" $(LDFLAGS) -o ./bin/`basename $$target_pkg`$(BIN_EXT) $$target_pkg || exit 1; done
+	mkdir -p bin
+	$(GOX) -osarch="$(GOOS)/amd64" -tags="$(BUILD_TAGS)" $(LDFLAGS) -output bin/cete
 
 .PHONY: install
 install: show-env
@@ -99,9 +103,8 @@ install: show-env
 .PHONY: dist
 dist: show-env
 	@echo ">> packaging binaries"
-	mkdir -p ./dist/$(GOOS)-$(GOARCH)/bin
-	for target_pkg in $(TARGET_PACKAGES); do echo $$target_pkg; $(GO) build -tags="$(BUILD_TAGS)" $(LDFLAGS) -o ./dist/$(GOOS)-$(GOARCH)/bin/`basename $$target_pkg`$(BIN_EXT) $$target_pkg || exit 1; done
-	(cd ./dist/$(GOOS)-$(GOARCH); tar zcfv ../cete-${VERSION}.$(GOOS)-$(GOARCH).tar.gz .)
+	mkdir dist
+	$(GOX) -osarch="linux/amd64" -osarch="darwin/amd64" -osarch="windows/amd64" -tags="$(BUILD_TAGS)" $(LDFLAGS) -output "dist/{{.Dir}}_{{.OS}}_{{.Arch}}"
 
 .PHONY: list-tag
 list-tag:
