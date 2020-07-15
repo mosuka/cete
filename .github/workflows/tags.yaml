@@ -101,4 +101,4 @@ jobs:
           tag_name=$(basename $GITHUB_REF)
           hub release create "${assets[@]}" -m "$tag_name" "$tag_name"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CETE_GITHUB_TOKEN }}
