@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
@@ -44,6 +45,36 @@ func (k *KVS) Close() error {
 	}
 
 	return nil
+}
+
+func (k *KVS) RunGC(ctx context.Context, interval time.Duration, discardRatio float64) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				start := time.Now()
+
+				for {
+					err := k.db.RunValueLogGC(discardRatio)
+					if err != nil {
+						if err == badger.ErrNoRewrite {
+							break
+						}
+
+						k.logger.Error("garbage collection failed", zap.Error(err))
+						break
+					}
+				}
+
+				k.logger.Info("garbage collection finished", zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 func (k *KVS) Get(key string) ([]byte, error) {

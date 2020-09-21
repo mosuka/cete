@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -38,6 +39,10 @@ func NewRaftFSM(path string, logger *zap.Logger) (*RaftFSM, error) {
 		logger.Error("failed to create key value store", zap.String("path", path), zap.Error(err))
 		return nil, err
 	}
+
+	// TODO: Context should be passed down to allow for cascade cancellation.
+	// TODO: GC should have its own flags for both the interval (--gc-interval=5m) and ratio (--gc-discard-ratio=0.5).
+	kvs.RunGC(context.Background(), 5*time.Minute, 0.5)
 
 	return &RaftFSM{
 		logger:   logger,
