@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	raftbadgerdb "github.com/bbva/raft-badger"
+	raftbadgerdb "github.com/BBVA/raft-badger"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"

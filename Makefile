@@ -74,12 +74,12 @@ format: show-env
 .PHONY: test
 test: show-env
 	@echo ">> testing all packages"
-	$(GO) test -race -covermode=atomic -v -tags="$(BUILD_TAGS)" $(PACKAGES)
+	$(GO) test -covermode=atomic -v -tags="$(BUILD_TAGS)" $(PACKAGES)
 
 .PHONY: coverage
 coverage: show-env
 	@echo ">> checking coverage of all packages"
-	$(GO) test -race -covermode=atomic -coverprofile cover.out -tags="$(BUILD_TAGS)" $(PACKAGES)
+	$(GO) test -covermode=atomic -coverprofile cover.out -tags="$(BUILD_TAGS)" $(PACKAGES)
 	$(GO) tool cover -html=cover.out -o cover.html
 
 .PHONY: clean
