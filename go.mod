@@ -3,8 +3,8 @@ module github.com/mosuka/cete
 go 1.14
 
 require (
-	github.com/bbva/raft-badger v1.0.0
-	github.com/dgraph-io/badger/v2 v2.0.0
+	github.com/BBVA/raft-badger v1.0.2
+	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/golang/protobuf v1.3.5
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
