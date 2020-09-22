@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
-- Add garbage collector for badger #48 @ christian-roggia
+- Fix go.mod dependency due to a change in the case #50 @mosuka
+- Add garbage collector for badger #48 @christian-roggia
 - adds cicd #41 @vniche
 - adds scan endpoint #35 @vniche
 - Fix bug in getting leader ID #34 @mosuka
